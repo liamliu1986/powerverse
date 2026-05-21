@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: powerverse-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: powerverse-api
+  template:
+    metadata:
+      labels:
+        app: powerverse-api
+    spec:
+      containers:
+      - name: api
+        image: powerverse-api:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: powerverse-secrets
+              key: database-url
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1
+            memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: powerverse-api
+spec:
+  selector:
+    app: powerverse-api
+  ports:
+  - port: 80
+    targetPort: 8000

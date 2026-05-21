@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: powerverse-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: powerverse-web
+  template:
+    metadata:
+      labels:
+        app: powerverse-web
+    spec:
+      containers:
+      - name: web
+        image: powerverse-web:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: powerverse-web
+spec:
+  selector:
+    app: powerverse-web
+  ports:
+  - port: 80
+    targetPort: 80
