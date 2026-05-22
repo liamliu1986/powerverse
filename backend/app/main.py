@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from sqlalchemy import select
 from .config import get_settings
+from .database import engine, Base, async_session
+from .models.user import User
+from .core.security import get_password_hash
 from .api.auth import router as auth_router
 from .api.servers import router as servers_router
 from .api.gpus import router as gpus_router
@@ -9,11 +14,33 @@ from .api.dashboard import router as dashboard_router
 
 settings = get_settings()
 
+async def init_db():
+    async with async_session() as session:
+        result = await session.execute(select(User).where(User.username == "admin"))
+        if not result.scalar_one_or_none():
+            admin = User(
+                username="admin",
+                email="admin@powerverse.com",
+                password_hash=get_password_hash("admin123"),
+                role="admin",
+                subsidiary="总部"
+            )
+            session.add(admin)
+            await session.commit()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await init_db()
+    yield
+
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

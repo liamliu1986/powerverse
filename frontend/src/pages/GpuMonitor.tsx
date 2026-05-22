@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Drawer, Form, Input, Select, Space, message, Popconfirm } from 'antd'
+import { Table, Button, Drawer, Form, Input, Select, Space, message } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import api from '../services/api'
 
@@ -173,9 +173,6 @@ export default function GpuMonitor() {
         title="添加GPU"
         open={modalVisible}
         onClose={() => setModalVisible(false)}
-        onOk={handleSubmit}
-        okText="确定"
-        cancelText="取消"
         width={400}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
@@ -195,6 +192,7 @@ export default function GpuMonitor() {
           <Form.Item name="memory_total_mb" label="显存 (MB)">
             <Input type="number" placeholder="e.g. 40960" />
           </Form.Item>
+          <Button type="primary" onClick={handleSubmit} block>确定</Button>
         </Form>
       </Drawer>
     </div>
