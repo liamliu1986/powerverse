@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # PowerVerse API metrics (if exposed)
+  - job_name: 'powerverse-api'
+    static_configs:
+      - targets: ['powerverse-api:8000']
+    metrics_path: '/metrics'
+
+  # DCGM Exporter on GPU servers
+  - job_name: 'dcgm-exporter'
+    static_configs:
+      - targets: ['172.18.4.227:9400']
+        labels:
+          server: 'gpu-server-1'
+          subsidiary: '子公司A'
+          machine_room: '机房1'

@@ -6,6 +6,7 @@ from ..database import get_db
 from ..models.server import Server
 from ..models.gpu import GPU
 from ..schemas.server import ServerCreate, ServerUpdate, ServerResponse
+from ..schemas.gpu import GPUResponse
 from ..core.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/v1/servers", tags=["Servers"])
@@ -84,7 +85,7 @@ async def delete_server(
         raise HTTPException(status_code=404, detail="Server not found")
     await db.delete(server)
 
-@router.get("/{server_id}/gpus", response_model=List[GPU])
+@router.get("/{server_id}/gpus", response_model=List[GPUResponse])
 async def get_server_gpus(
     server_id: int,
     db: AsyncSession = Depends(get_db),
