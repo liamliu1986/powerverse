@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import GpuMonitor from './pages/GpuMonitor'
 import ReservationList from './pages/ReservationList'
+import Servers from './pages/Servers'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/gpus" element={<GpuMonitor />} />
         <Route path="/reservations" element={<ReservationList />} />
+        <Route path="/servers" element={<Servers />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ConfigProvider>
