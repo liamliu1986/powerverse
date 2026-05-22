@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Modal, Form, Input, Select, Space, message, Popconfirm } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Table, Button, Modal, Form, Input, Select, Space, message, Popconfirm, Tag, Drawer, Divider } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ExpandOutlined } from '@ant-design/icons'
 import api from '../services/api'
 
 interface Server {
@@ -14,6 +14,19 @@ interface Server {
   created_at: string
 }
 
+interface GPU {
+  id: number
+  gpu_index: number
+  model_name?: string
+  memory_total_mb?: number
+}
+
+interface ServerFilter {
+  subsidiary?: string
+  machine_room?: string
+  status?: string
+}
+
 const { Option } = Select
 
 export default function Servers() {
@@ -21,21 +34,46 @@ export default function Servers() {
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [editingServer, setEditingServer] = useState<Server | null>(null)
+  const [detailVisible, setDetailVisible] = useState(false)
+  const [selectedServer, setSelectedServer] = useState<Server | null>(null)
+  const [serverGpus, setServerGpus] = useState<GPU[]>([])
+  const [filters, setFilters] = useState<ServerFilter>({})
   const [form] = Form.useForm()
 
   useEffect(() => {
     fetchServers()
-  }, [])
+  }, [filters])
 
   const fetchServers = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/v1/servers')
+      const params = new URLSearchParams()
+      if (filters.subsidiary) params.append('subsidiary', filters.subsidiary)
+      if (filters.machine_room) params.append('machine_room', filters.machine_room)
+      if (filters.status) params.append('status', filters.status)
+
+      const url = params.toString() ? `/v1/servers?${params.toString()}` : '/v1/servers'
+      const res = await api.get<Server[]>(url)
       setServers(res.data)
     } catch {
       message.error('获取服务器列表失败')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFilterChange = (key: keyof ServerFilter, value: string | undefined) => {
+    setFilters((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleViewGpus = async (server: Server) => {
+    setSelectedServer(server)
+    setDetailVisible(true)
+    try {
+      const res = await api.get<GPU[]>(`/v1/servers/${server.id}/gpus`)
+      setServerGpus(res.data)
+    } catch {
+      setServerGpus([])
     }
   }
 
@@ -78,6 +116,49 @@ export default function Servers() {
     }
   }
 
+  const statusColor: Record<string, string> = {
+    online: 'green',
+    offline: 'red',
+    maintenance: 'orange',
+  }
+
+  const statusText: Record<string, string> = {
+    online: '在线',
+    offline: '离线',
+    maintenance: '维护中',
+  }
+
+  const expandedRowRender = (server: Server) => {
+    return (
+      <div style={{ padding: '8px 0' }}>
+        <Space style={{ marginBottom: 8 }}>
+          <Button size="small" icon={<ExpandOutlined />} onClick={() => handleViewGpus(server)}>
+            查看GPU列表
+          </Button>
+        </Space>
+        {serverGpus.length > 0 && selectedServer?.id === server.id ? (
+          <Table
+            size="small"
+            dataSource={serverGpus}
+            rowKey="id"
+            pagination={false}
+            columns={[
+              { title: 'GPU ID', dataIndex: 'id', key: 'id', width: 80 },
+              { title: 'GPU索引', dataIndex: 'gpu_index', key: 'gpu_index', width: 80 },
+              { title: '型号', dataIndex: 'model_name', key: 'model_name' },
+              {
+                title: '显存',
+                dataIndex: 'memory_total_mb',
+                key: 'memory_total_mb',
+                render: (v: number) => v ? `${(v / 1024).toFixed(0)} GB` : 'N/A',
+              },
+            ]}
+          />
+        ) : null}
+      </div>
+    )
+  }
+
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: '主机名', dataIndex: 'hostname', key: 'hostname' },
@@ -89,10 +170,9 @@ export default function Servers() {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => {
-        const colors: Record<string, string> = { online: 'green', offline: 'red', maintenance: 'orange' }
-        return <span style={{ color: colors[status] }}>{status}</span>
-      }
+      render: (status: string) => (
+        <Tag color={statusColor[status]}>{statusText[status] || status}</Tag>
+      ),
     },
     {
       title: '操作',
@@ -105,17 +185,55 @@ export default function Servers() {
             <Button icon={<DeleteOutlined />} size="small" danger />
           </Popconfirm>
         </Space>
-      )
-    }
+      ),
+    },
   ]
+
+  const subsidiaries = [...new Set(servers.map((s) => s.subsidiary).filter(Boolean))] as string[]
+  const machineRooms = [...new Set(servers.map((s) => s.machine_room).filter(Boolean))] as string[]
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1>服务器管理</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          添加服务器
-        </Button>
+        <Space>
+          <Select
+            placeholder="子公司"
+            allowClear
+            style={{ width: 120 }}
+            onChange={(v) => handleFilterChange('subsidiary', v || undefined)}
+            value={filters.subsidiary}
+          >
+            {subsidiaries.map((s) => (
+              <Option key={s} value={s}>{s}</Option>
+            ))}
+          </Select>
+          <Select
+            placeholder="机房"
+            allowClear
+            style={{ width: 120 }}
+            onChange={(v) => handleFilterChange('machine_room', v || undefined)}
+            value={filters.machine_room}
+          >
+            {machineRooms.map((m) => (
+              <Option key={m} value={m}>{m}</Option>
+            ))}
+          </Select>
+          <Select
+            placeholder="状态"
+            allowClear
+            style={{ width: 100 }}
+            onChange={(v) => handleFilterChange('status', v || undefined)}
+            value={filters.status}
+          >
+            <Option value="online">在线</Option>
+            <Option value="offline">离线</Option>
+            <Option value="maintenance">维护中</Option>
+          </Select>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+            添加服务器
+          </Button>
+        </Space>
       </div>
 
       <Table
@@ -124,8 +242,66 @@ export default function Servers() {
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
+        expandable={{
+          expandedRowRender,
+          rowExpandable: () => true,
+        }}
       />
 
+      {/* 服务器详情Drawer */}
+      <Drawer
+        title={`服务器详情 - ${selectedServer?.hostname}`}
+        open={detailVisible}
+        onClose={() => {
+          setDetailVisible(false)
+          setSelectedServer(null)
+          setServerGpus([])
+        }}
+        width={500}
+      >
+        {selectedServer && (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <h3>基本信息</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 14 }}>
+                <div>主机名: <strong>{selectedServer.hostname}</strong></div>
+                <div>IP地址: <strong>{selectedServer.ip_address}</strong></div>
+                <div>子公司: <strong>{selectedServer.subsidiary || 'N/A'}</strong></div>
+                <div>机房: <strong>{selectedServer.machine_room || 'N/A'}</strong></div>
+                <div>机架位置: <strong>{selectedServer.rack_location || 'N/A'}</strong></div>
+                <div>状态: <Tag color={statusColor[selectedServer.status]}>{statusText[selectedServer.status]}</Tag></div>
+                <div>创建时间: <strong>{selectedServer.created_at.split('T')[0]}</strong></div>
+              </div>
+            </div>
+            <Divider />
+            <div>
+              <h3>GPU列表 ({serverGpus.length})</h3>
+              {serverGpus.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#999', padding: 20 }}>暂无GPU</div>
+              ) : (
+                <Table
+                  size="small"
+                  dataSource={serverGpus}
+                  rowKey="id"
+                  pagination={false}
+                  columns={[
+                    { title: 'GPU索引', dataIndex: 'gpu_index', key: 'gpu_index', width: 80 },
+                    { title: '型号', dataIndex: 'model_name', key: 'model_name' },
+                    {
+                      title: '显存',
+                      dataIndex: 'memory_total_mb',
+                      key: 'memory_total_mb',
+                      render: (v: number) => v ? `${(v / 1024).toFixed(0)} GB` : 'N/A',
+                    },
+                  ]}
+                />
+              )}
+            </div>
+          </>
+        )}
+      </Drawer>
+
+      {/* 添加/编辑服务器Modal */}
       <Modal
         title={editingServer ? '编辑服务器' : '添加服务器'}
         open={modalVisible}

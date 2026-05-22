@@ -5,13 +5,14 @@ import { useNavigate } from 'react-router-dom'
 
 export default function Login() {
   const [loading, setLoading] = useState(false)
-  const login = useAuthStore((state) => state.login)
+  const { login, fetchUser } = useAuthStore()
   const navigate = useNavigate()
 
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true)
     try {
       await login(values.username, values.password)
+      await fetchUser()
       message.success('登录成功')
       navigate('/')
     } catch {
