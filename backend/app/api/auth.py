@@ -23,7 +23,7 @@ async def login(
             detail="Incorrect username or password",
         )
 
-    access_token = create_access_token(data={"sub": user.id})
+    access_token = create_access_token(data={"sub": str(user.id)})
     return Token(access_token=access_token)
 
 @router.get("/me", response_model=UserResponse)

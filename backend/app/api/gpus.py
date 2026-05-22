@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
@@ -6,10 +6,22 @@ from datetime import datetime, timedelta
 from ..database import get_db
 from ..models.gpu import GPU
 from ..models.gpu_metric import GPUMetric
-from ..schemas.gpu import GPUResponse, GPUMetricResponse, GPUMetricsHistoryResponse
+from ..schemas.gpu import GPUResponse, GPUMetricResponse, GPUMetricsHistoryResponse, GPUCreate
 from ..core.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/v1/gpus", tags=["GPUs"])
+
+@router.post("", response_model=GPUResponse, status_code=status.HTTP_201_CREATED)
+async def create_gpu(
+    gpu_data: GPUCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    gpu = GPU(**gpu_data.model_dump())
+    db.add(gpu)
+    await db.flush()
+    await db.refresh(gpu)
+    return gpu
 
 @router.get("", response_model=List[GPUResponse])
 async def list_gpus(
