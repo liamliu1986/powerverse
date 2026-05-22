@@ -20,5 +20,5 @@ class User(Base):
     subsidiary = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    reservations = relationship("Reservation", back_populates="user")
+    reservations = relationship("Reservation", foreign_keys="[Reservation.user_id]", back_populates="user")
     messages = relationship("Message", back_populates="user")
