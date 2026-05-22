@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-NetRoute -DestinationPrefix '172.18.4.0/24' 2>&1\")",
+      "Bash(findstr \"172.18\")",
+      "Bash(findstr \"172\")",
+      "Bash(ssh -i ~/.ssh/id_rsa -o ConnectTimeout=5 172.18.68.183 \"echo 'Server 183 OK' && nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader\")"
+    ]
+  }
+}

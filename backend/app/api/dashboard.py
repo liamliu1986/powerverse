@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, text, literal_column
 from typing import List
 from datetime import datetime, timedelta
 from ..database import get_db
@@ -142,13 +142,13 @@ async def get_usage_trend(
 
     result = await db.execute(
         select(
-            func.time_bucket('1 hour', GPUMetric.time).label('hour'),
+            literal_column("date_trunc('hour', gpu_metrics.time)").label('hour'),
             func.avg(GPUMetric.utilization_pct).label('avg_util'),
             func.avg(GPUMetric.memory_used_mb).label('avg_mem')
         )
         .where(GPUMetric.time >= since)
-        .group_by('hour')
-        .order_by('hour')
+        .group_by(literal_column('hour'))
+        .order_by(literal_column('hour'))
     )
 
     items = [

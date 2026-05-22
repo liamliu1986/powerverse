@@ -11,6 +11,7 @@ from .api.servers import router as servers_router
 from .api.gpus import router as gpus_router
 from .api.reservations import router as reservations_router
 from .api.dashboard import router as dashboard_router
+from .api.messages import router as messages_router
 
 settings = get_settings()
 
@@ -60,6 +61,7 @@ app.include_router(servers_router)
 app.include_router(gpus_router)
 app.include_router(reservations_router)
 app.include_router(dashboard_router)
+app.include_router(messages_router)
 
 @app.get("/")
 async def root():

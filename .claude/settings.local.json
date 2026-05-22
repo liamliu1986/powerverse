@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(python -c \"from backend.app.models import User, Server, GPU, GPUMetric, Reservation, Message, AuditLog, UserRole, ServerStatus, ReservationStatus, MessageType; print\\('All imports successful'\\)\")",
+      "Bash(docker build *)",
+      "Bash(netstat -tuln)",
+      "Bash(netstat -ano)",
+      "Bash(docker compose *)",
+      "Bash(curl -s http://localhost:8001/api/health)",
+      "Bash(curl -s http://localhost:9090/-/healthy)",
+      "Bash(curl -s http://localhost:3030/api/health)",
+      "WebFetch(domain:docs.nvidia.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s --proxy http://localhost:5777 https://docs.nvidia.com/datacenter/dcgm/latest/gpu-telemetry/dcgm-exporter.html)",
+      "Bash(curl -s --proxy http://localhost:5777 \"https://docs.nvidia.com/datacenter/dcgm/latest/gpu-telemetry/dcgm-exporter.html\")",
+      "Bash(curl -s http://localhost:9090/api/v1/targets)",
+      "Bash(findstr \"9090 3030 9400\")",
+      "Bash(tasklist)",
+      "Bash(findstr \"4372\")",
+      "Bash(findstr \"3030\")",
+      "Bash(docker exec *)",
+      "Bash(ping -n 2 172.18.4.227)",
+      "Bash(docker network *)",
+      "Bash(curl -s http://172.18.4.227:9400/metrics --connect-timeout 5)",
+      "Bash(powershell -Command \"Get-NetIPAddress -InterfaceAlias '*Docker*' 2>&1\")",
+      "Bash(ipconfig)",
+      "Bash(findstr -i \"ethernet adapter\" -A 5)",
+      "Bash(netsh interface *)"
+    ]
+  }
+}

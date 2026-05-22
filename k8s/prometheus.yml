@@ -11,7 +11,7 @@ scrape_configs:
   # PowerVerse API metrics (if exposed)
   - job_name: 'powerverse-api'
     static_configs:
-      - targets: ['powerverse-api:8000']
+      - targets: ['localhost:8001']
     metrics_path: '/metrics'
 
   # DCGM Exporter on GPU servers

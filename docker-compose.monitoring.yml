@@ -6,7 +6,7 @@ services:
     container_name: powerverse-prometheus
     network_mode: host
     volumes:
-      - ./k8s/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
