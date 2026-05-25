@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from typing import List, Optional
 from ..database import get_db
 from ..models.server import Server
 from ..models.gpu import GPU
+from ..models.gpu_metric import GPUMetric
+from ..models.reservation import Reservation
 from ..schemas.server import ServerCreate, ServerUpdate, ServerResponse
 from ..schemas.gpu import GPUResponse
 from ..core.dependencies import get_current_user
@@ -83,6 +85,19 @@ async def delete_server(
     server = result.scalar_one_or_none()
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
+
+    # Get all GPUs belonging to this server
+    gpu_result = await db.execute(select(GPU.id).where(GPU.server_id == server_id))
+    gpu_ids = [row[0] for row in gpu_result.all()]
+
+    if gpu_ids:
+        # Delete related reservations first
+        await db.execute(delete(Reservation).where(Reservation.gpu_id.in_(gpu_ids)))
+        # Delete related metrics
+        await db.execute(delete(GPUMetric).where(GPUMetric.gpu_id.in_(gpu_ids)))
+        # Delete GPUs
+        await db.execute(delete(GPU).where(GPU.server_id == server_id))
+
     await db.delete(server)
 
 @router.get("/{server_id}/gpus", response_model=List[GPUResponse])
