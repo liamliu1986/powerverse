@@ -54,17 +54,28 @@ async def fetch_from_prometheus(query: str) -> Optional[List[dict]]:
 async def discover_gpus_on_server(server: Server) -> List[DiscoveredGPU]:
     instance = f"{server.ip_address}:9400"
 
-    index_query = f'DCGM_FI_DEV_GPU_DEVICE_INDEX{{instance="{instance}"}}'
+    # Query a metric that has gpu labels to discover available GPUs
+    # DCGM_FI_DEV_GPU_TEMP is commonly available on all DCGM exporters
+    index_query = f'DCGM_FI_DEV_GPU_TEMP{{instance="{instance}"}}'
     index_result = await fetch_from_prometheus(index_query)
 
     if not index_result:
         logger.warning(f"No GPU devices found on {instance}")
         return []
 
-    discovered_gpus = []
+    # Extract unique GPU indices from the results
+    gpu_indices = set()
     for item in index_result:
-        gpu_index = int(item["value"][1])
+        metric = item.get("metric", {})
+        gpu_label = metric.get("gpu", None)
+        if gpu_label is not None:
+            try:
+                gpu_indices.add(int(gpu_label))
+            except (ValueError, TypeError):
+                pass
 
+    discovered_gpus = []
+    for gpu_index in sorted(gpu_indices):
         model_name = None
         memory_total_mb = None
 
