@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from typing import List, Optional
@@ -10,6 +11,7 @@ from ..models.reservation import Reservation
 from ..schemas.server import ServerCreate, ServerUpdate, ServerResponse
 from ..schemas.gpu import GPUResponse
 from ..core.dependencies import get_current_user
+from ..services import prometheus_config
 
 router = APIRouter(prefix="/api/v1/servers", tags=["Servers"])
 
@@ -42,6 +44,10 @@ async def create_server(
     db.add(server)
     await db.flush()
     await db.refresh(server)
+
+    # Add server IP to Prometheus targets
+    asyncio.create_task(prometheus_config.add_target(server.ip_address))
+
     return server
 
 @router.get("/{server_id}", response_model=ServerResponse)
@@ -97,6 +103,9 @@ async def delete_server(
         await db.execute(delete(GPUMetric).where(GPUMetric.gpu_id.in_(gpu_ids)))
         # Delete GPUs
         await db.execute(delete(GPU).where(GPU.server_id == server_id))
+
+    # Remove server IP from Prometheus targets
+    asyncio.create_task(prometheus_config.remove_target(server.ip_address))
 
     await db.delete(server)
 
