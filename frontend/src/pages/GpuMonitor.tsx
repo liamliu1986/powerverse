@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Drawer, Form, Input, Select, Space, message, Progress, Tag } from 'antd'
-import { PlusOutlined, ApartmentOutlined } from '@ant-design/icons'
-import api from '../services/api'
+import { Table, Button, Drawer, Select, Space, message, Progress, Tag, Modal, List, Divider } from 'antd'
+import { PlusOutlined, ApartmentOutlined, SearchOutlined } from '@ant-design/icons'
+import { gpuApi, GPU, GPUMetric, DiscoveredGPU } from '../services/gpuApi'
 import dayjs from 'dayjs'
+
+const { Option } = Select
 
 interface Server {
   id: number
@@ -10,44 +12,27 @@ interface Server {
   ip_address: string
 }
 
-interface GPU {
-  id: number
-  server_id: number
-  gpu_index: number
-  model_name?: string
-  memory_total_mb?: number
-  created_at: string
+interface GPUWithServer extends GPU {
   server?: Server
 }
 
-interface GPUMetric {
-  utilization_pct: number
-  memory_used_mb: number
-  memory_free_mb: number
-  temperature_c: number
-  power_usage_w: number
-  time: string
-}
-
-interface GPUMetricsHistoryResponse {
-  gpu_id: number
-  metrics: GPUMetric[]
-}
-
-const { Option } = Select
-
 export default function GpuMonitor() {
-  const [gpus, setGpus] = useState<GPU[]>([])
+  const [gpus, setGpus] = useState<GPUWithServer[]>([])
   const [servers, setServers] = useState<Server[]>([])
   const [loading, setLoading] = useState(false)
-  const [selectedGpu, setSelectedGpu] = useState<GPU | null>(null)
+  const [selectedGpu, setSelectedGpu] = useState<GPUWithServer | null>(null)
   const [metrics, setMetrics] = useState<GPUMetric | null>(null)
   const [metricsHistory, setMetricsHistory] = useState<GPUMetric[]>([])
-  const [modalVisible, setModalVisible] = useState(false)
   const [detailVisible, setDetailVisible] = useState(false)
-  const [form] = Form.useForm()
   const [filterServerId, setFilterServerId] = useState<number | null>(null)
   const [historyHours, setHistoryHours] = useState(24)
+
+  // 发现GPU相关状态
+  const [discoverModalVisible, setDiscoverModalVisible] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
+  const [previewGpus, setPreviewGpus] = useState<DiscoveredGPU[]>([])
+  const [selectedServerId, setSelectedServerId] = useState<number | null>(null)
+  const [discoveringLoading, setDiscoveringLoading] = useState(false)
 
   useEffect(() => {
     fetchServers()
@@ -56,8 +41,9 @@ export default function GpuMonitor() {
 
   const fetchServers = async () => {
     try {
-      const res = await api.get<Server[]>('/v1/servers')
-      setServers(res.data)
+      const serversRes = await fetch('http://localhost:8001/api/v1/servers')
+      const serversData = await serversRes.json()
+      setServers(serversData)
     } catch {
       message.error('获取服务器列表失败')
     }
@@ -66,9 +52,8 @@ export default function GpuMonitor() {
   const fetchGpus = async (serverId?: number) => {
     setLoading(true)
     try {
-      const url = serverId ? `/v1/gpus?server_id=${serverId}` : '/v1/gpus'
-      const res = await api.get<GPU[]>(url)
-      setGpus(res.data)
+      const data = await gpuApi.list(serverId)
+      setGpus(data as GPUWithServer[])
     } catch {
       message.error('获取GPU列表失败')
     } finally {
@@ -81,17 +66,17 @@ export default function GpuMonitor() {
     fetchGpus(value || undefined)
   }
 
-  const handleViewDetails = async (gpu: GPU) => {
+  const handleViewDetails = async (gpu: GPUWithServer) => {
     setSelectedGpu(gpu)
     setDetailVisible(true)
 
     try {
-      const [metricsRes, historyRes] = await Promise.all([
-        api.get<GPUMetric>(`/v1/gpus/${gpu.id}/metrics`),
-        api.get<GPUMetricsHistoryResponse>(`/v1/gpus/${gpu.id}/metrics/history?hours=${historyHours}`),
+      const [metricsData, historyData] = await Promise.all([
+        gpuApi.getMetrics(gpu.id),
+        gpuApi.getMetricsHistory(gpu.id, historyHours),
       ])
-      setMetrics(metricsRes.data)
-      setMetricsHistory(historyRes.data.metrics)
+      setMetrics(metricsData)
+      setMetricsHistory(historyData.metrics)
     } catch {
       setMetrics(null)
       setMetricsHistory([])
@@ -102,42 +87,73 @@ export default function GpuMonitor() {
     setHistoryHours(hours)
     if (selectedGpu) {
       try {
-        const res = await api.get<GPUMetricsHistoryResponse>(
-          `/v1/gpus/${selectedGpu.id}/metrics/history?hours=${hours}`
-        )
-        setMetricsHistory(res.data.metrics)
+        const res = await gpuApi.getMetricsHistory(selectedGpu.id, hours)
+        setMetricsHistory(res.metrics)
       } catch {
         setMetricsHistory([])
       }
     }
   }
 
-  const handleAdd = () => {
-    form.resetFields()
-    setModalVisible(true)
+  // 发现GPU相关处理函数
+  const handleDiscoverClick = () => {
+    setSelectedServerId(filterServerId)
+    setDiscoverModalVisible(true)
   }
 
-  const handleSubmit = async () => {
+  const handleServerSelectChange = (value: number) => {
+    setSelectedServerId(value)
+  }
+
+  const handlePreviewDiscover = async () => {
+    if (!selectedServerId) {
+      message.warning('请先选择服务器')
+      return
+    }
+    setDiscovering(true)
     try {
-      const values = await form.validateFields()
-      await api.post('/v1/gpus', values)
-      message.success('添加成功')
-      setModalVisible(false)
+      const data = await gpuApi.discoverPreview(selectedServerId)
+      setPreviewGpus(data.gpus)
+    } catch {
+      message.error('发现GPU失败，请检查服务器IP和exporter状态')
+      setPreviewGpus([])
+    } finally {
+      setDiscovering(false)
+    }
+  }
+
+  const handleConfirmDiscover = async () => {
+    if (!selectedServerId || previewGpus.length === 0) return
+    setDiscoveringLoading(true)
+    try {
+      const result = await gpuApi.discover(selectedServerId)
+      if (result.discovered > 0) {
+        message.success(`成功发现并添加 ${result.discovered} 个GPU`)
+      } else if (result.already_exists > 0) {
+        message.info(`已存在 ${result.already_exists} 个GPU，无需重复添加`)
+      }
+      setDiscoverModalVisible(false)
+      setPreviewGpus([])
       fetchGpus(filterServerId || undefined)
     } catch {
-      message.error('添加失败')
+      message.error('添加GPU失败')
+    } finally {
+      setDiscoveringLoading(false)
     }
   }
 
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     {
-      title: '服务器',
-      key: 'server',
-      render: (_: unknown, r: GPU) => r.server?.hostname || `Server #${r.server_id}`,
+      title: 'GPU信息',
+      key: 'gpu_info',
+      render: (_: unknown, r: GPUWithServer) => (
+        <Space direction="vertical" size={0}>
+          <span>{r.server?.hostname || `Server #${r.server_id}`} / GPU {r.gpu_index}</span>
+          <span style={{ fontSize: 12, color: '#888' }}>{r.model_name || '未知型号'}</span>
+        </Space>
+      ),
     },
-    { title: 'GPU索引', dataIndex: 'gpu_index', key: 'gpu_index', width: 80 },
-    { title: '型号', dataIndex: 'model_name', key: 'model_name' },
     {
       title: '显存',
       dataIndex: 'memory_total_mb',
@@ -149,9 +165,9 @@ export default function GpuMonitor() {
       title: '状态',
       key: 'status',
       width: 80,
-      render: (_: unknown, r: GPU) => {
+      render: (_: unknown, r: GPUWithServer) => {
         if (metrics && selectedGpu?.id === r.id) {
-          const util = metrics.utilization_pct
+          const util = metrics.utilization_pct ?? 0
           if (util > 80) return <Tag color="red">繁忙</Tag>
           if (util > 20) return <Tag color="orange">使用中</Tag>
           return <Tag color="green">空闲</Tag>
@@ -163,7 +179,7 @@ export default function GpuMonitor() {
       title: '操作',
       key: 'action',
       width: 100,
-      render: (_: unknown, record: GPU) => (
+      render: (_: unknown, record: GPUWithServer) => (
         <Button size="small" onClick={() => handleViewDetails(record)}>
           详情
         </Button>
@@ -174,7 +190,7 @@ export default function GpuMonitor() {
   const renderTrendChart = () => {
     if (metricsHistory.length === 0) return <div style={{ textAlign: 'center', color: '#999' }}>暂无历史数据</div>
 
-    const maxUtil = Math.max(...metricsHistory.map((m) => m.utilization_pct), 1)
+    const maxUtil = Math.max(...metricsHistory.map((m) => m.utilization_pct ?? 0), 1)
 
     return (
       <div style={{ marginTop: 16 }}>
@@ -187,7 +203,7 @@ export default function GpuMonitor() {
               key={i}
               style={{
                 flex: 1,
-                height: `${(m.utilization_pct / maxUtil) * 100}%`,
+                height: `${((m.utilization_pct ?? 0) / maxUtil) * 100}%`,
                 backgroundColor: '#1890ff',
                 borderRadius: '2px 2px 0 0',
                 minHeight: 2,
@@ -218,8 +234,8 @@ export default function GpuMonitor() {
               </Option>
             ))}
           </Select>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            添加GPU
+          <Button type="primary" icon={<SearchOutlined />} onClick={handleDiscoverClick}>
+            发现GPU
           </Button>
         </Space>
       </div>
@@ -274,27 +290,27 @@ export default function GpuMonitor() {
                 <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>实时监控</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={{ background: '#e6f7ff', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}>{metrics.utilization_pct}%</div>
+                    <div style={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}>{metrics.utilization_pct ?? 0}%</div>
                     <div style={{ fontSize: 12, color: '#666' }}>利用率</div>
                   </div>
                   <div style={{ background: '#fff7e6', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 'bold', color: '#fa8c16' }}>{metrics.temperature_c}°C</div>
+                    <div style={{ fontSize: 20, fontWeight: 'bold', color: '#fa8c16' }}>{metrics.temperature_c ?? 0}°C</div>
                     <div style={{ fontSize: 12, color: '#666' }}>温度</div>
                   </div>
                   <div style={{ background: '#f6ffed', padding: 12, borderRadius: 8, textAlign: 'center' }}>
                     <div style={{ fontSize: 20, fontWeight: 'bold', color: '#52c41a' }}>
-                      {(metrics.memory_used_mb / 1024).toFixed(1)} GB
+                      {((metrics.memory_used_mb ?? 0) / 1024).toFixed(1)} GB
                     </div>
                     <div style={{ fontSize: 12, color: '#666' }}>已用显存</div>
                   </div>
                   <div style={{ background: '#fff1f0', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 'bold', color: '#f5222d' }}>{metrics.power_usage_w} W</div>
+                    <div style={{ fontSize: 20, fontWeight: 'bold', color: '#f5222d' }}>{metrics.power_usage_w ?? 0} W</div>
                     <div style={{ fontSize: 12, color: '#666' }}>功率</div>
                   </div>
                 </div>
                 <Progress
-                  percent={Math.round((metrics.memory_used_mb / (metrics.memory_free_mb + metrics.memory_used_mb)) * 100)}
-                  format={() => `${(metrics.memory_used_mb / 1024).toFixed(1)} / ${((metrics.memory_free_mb + metrics.memory_used_mb) / 1024).toFixed(1)} GB`}
+                  percent={Math.round(((metrics.memory_used_mb ?? 0) / ((metrics.memory_free_mb ?? 0) + (metrics.memory_used_mb ?? 0))) * 100)}
+                  format={() => `${((metrics.memory_used_mb ?? 0) / 1024).toFixed(1)} / ${(((metrics.memory_free_mb ?? 0) + (metrics.memory_used_mb ?? 0)) / 1024).toFixed(1)} GB`}
                   style={{ marginTop: 12 }}
                 />
                 <div style={{ fontSize: 12, color: '#999', textAlign: 'right', marginTop: 4 }}>
@@ -319,37 +335,79 @@ export default function GpuMonitor() {
         )}
       </Drawer>
 
-      {/* 添加GPU Drawer */}
-      <Drawer
-        title="添加GPU"
-        open={modalVisible}
-        onClose={() => setModalVisible(false)}
-        width={400}
+      {/* 发现GPU Modal */}
+      <Modal
+        title="发现GPU设备"
+        open={discoverModalVisible}
+        onCancel={() => {
+          setDiscoverModalVisible(false)
+          setPreviewGpus([])
+          setSelectedServerId(null)
+        }}
+        footer={null}
+        width={500}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="server_id" label="服务器" rules={[{ required: true, message: '请选择服务器' }]}>
-            <Select placeholder="请选择服务器">
+        <Space direction="vertical" style={{ width: '100%' }} size={16}>
+          <div>
+            <span style={{ marginRight: 8 }}>选择服务器:</span>
+            <Select
+              value={selectedServerId}
+              onChange={handleServerSelectChange}
+              placeholder="请选择服务器"
+              style={{ width: 280 }}
+            >
               {servers.map((s) => (
                 <Option key={s.id} value={s.id}>
                   {s.hostname} ({s.ip_address})
                 </Option>
               ))}
             </Select>
-          </Form.Item>
-          <Form.Item name="gpu_index" label="GPU索引" rules={[{ required: true, message: '请输入GPU索引' }]}>
-            <Input type="number" placeholder="e.g. 0" />
-          </Form.Item>
-          <Form.Item name="model_name" label="型号">
-            <Input placeholder="e.g. NVIDIA A100" />
-          </Form.Item>
-          <Form.Item name="memory_total_mb" label="显存 (MB)">
-            <Input type="number" placeholder="e.g. 40960" />
-          </Form.Item>
-          <Button type="primary" onClick={handleSubmit} block>
-            确定
-          </Button>
-        </Form>
-      </Drawer>
+            <Button
+              onClick={handlePreviewDiscover}
+              loading={discovering}
+              disabled={!selectedServerId}
+              style={{ marginLeft: 8 }}
+            >
+              预览
+            </Button>
+          </div>
+
+          {previewGpus.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 8 }}>
+                <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                  将发现 {previewGpus.length} 个GPU设备:
+                </div>
+                <List
+                  size="small"
+                  dataSource={previewGpus}
+                  renderItem={(gpu) => (
+                    <List.Item style={{ padding: '4px 0' }}>
+                      GPU {gpu.gpu_index} - {gpu.model_name || '未知型号'} - 显存: {gpu.memory_total_mb ? `${(gpu.memory_total_mb / 1024).toFixed(0)} GB` : 'N/A'}
+                    </List.Item>
+                  )}
+                />
+              </div>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleConfirmDiscover}
+                loading={discoveringLoading}
+                block
+              >
+                确认添加 {previewGpus.length} 个GPU
+              </Button>
+            </>
+          )}
+
+          {previewGpus.length === 0 && !discovering && selectedServerId && (
+            <div style={{ textAlign: 'center', color: '#999', padding: 20 }}>
+              点击"预览"按钮发现GPU设备
+            </div>
+          )}
+        </Space>
+      </Modal>
     </div>
   )
 }

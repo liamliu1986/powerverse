@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Table, Timeline, DatePicker, Progress, Spin, Space, Tag, Empty } from 'antd'
-import { CloudServerOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { Card, Row, Col, Statistic, Timeline, DatePicker, Progress, Spin, Space, Tag, Empty, Badge } from 'antd'
+import { CloudServerOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, DashboardOutlined } from '@ant-design/icons'
 import { dashboardApi, DashboardOverview, UtilizationStats, ScheduleItem, UsageTrendItem } from '../services/dashboardApi'
 import dayjs from 'dayjs'
 
@@ -54,23 +54,6 @@ export default function Dashboard() {
       </div>
     )
   }
-
-  const utilizationColumns = [
-    { title: 'GPU', dataIndex: 'gpu_name', key: 'gpu_name' },
-    { title: '服务器', dataIndex: 'server_hostname', key: 'server_hostname' },
-    {
-      title: '利用率',
-      dataIndex: 'utilization_pct',
-      key: 'utilization_pct',
-      render: (v: number) => <Progress percent={v} size="small" />
-    },
-    {
-      title: '显存',
-      key: 'memory',
-      render: (_: unknown, r: UtilizationStats['gpus'][0]) =>
-        `${(r.memory_used_mb / 1024).toFixed(1)} / ${(r.memory_total_mb / 1024).toFixed(1)} GB`
-    },
-  ]
 
   return (
     <div>
@@ -146,21 +129,87 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      {/* GPU利用率 */}
+      {/* GPU 实时状态卡片 */}
       <Row gutter={16} style={{ marginTop: 24 }}>
-        <Col span={14}>
-          <Card title="GPU 利用率" extra={<Tag color="blue">平均 {utilization?.average_utilization.toFixed(1)}%</Tag>}>
-            <Table
-              dataSource={utilization?.gpus || []}
-              columns={utilizationColumns}
-              rowKey="gpu_id"
-              size="small"
-              pagination={false}
-              scroll={{ y: 300 }}
-              locale={{ emptyText: <Empty description="暂无GPU数据" /> }}
-            />
+        <Col span={24}>
+          <Card
+            title={
+              <Space>
+                <DashboardOutlined />
+                GPU 实时监控
+                <Tag color="blue">平均利用率 {utilization?.average_utilization.toFixed(1) || 0}%</Tag>
+              </Space>
+            }
+            extra={
+              <Space>
+                <span style={{ fontSize: 12, color: '#999' }}>
+                  显存: {(utilization?.total_memory_used_gb || 0).toFixed(1)} / {(utilization?.total_memory_total_gb || 0).toFixed(1)} GB
+                </span>
+              </Space>
+            }
+          >
+            {utilization?.gpus && utilization.gpus.length > 0 ? (
+              <Row gutter={[16, 16]}>
+                {utilization.gpus.map((gpu) => {
+                  const status = gpu.utilization_pct > 80 ? 'busy' : gpu.utilization_pct > 20 ? 'used' : 'idle'
+                  const statusColor = status === 'busy' ? 'red' : status === 'used' ? 'orange' : 'green'
+                  const statusText = status === 'busy' ? '繁忙' : status === 'used' ? '使用中' : '空闲'
+
+                  return (
+                    <Col key={gpu.gpu_id} span={6}>
+                      <Card size="small" bordered bodyStyle={{ padding: 12 }}>
+                        <Space style={{ marginBottom: 8 }}>
+                          <Badge status={statusColor as 'success' | 'processing' | 'error' | 'default'} />
+                          <span style={{ fontWeight: 500 }}>{gpu.gpu_name}</span>
+                        </Space>
+                        <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
+                          {gpu.server_hostname}
+                        </div>
+
+                        <Row gutter={8}>
+                          <Col span={12}>
+                            <div style={{ textAlign: 'center', background: '#e6f7ff', padding: 8, borderRadius: 4 }}>
+                              <div style={{ fontSize: 18, fontWeight: 'bold', color: '#1890ff' }}>
+                                {gpu.utilization_pct}%
+                              </div>
+                              <div style={{ fontSize: 10, color: '#666' }}>利用率</div>
+                            </div>
+                          </Col>
+                          <Col span={12}>
+                            <div style={{ textAlign: 'center', background: '#fff7e6', padding: 8, borderRadius: 4 }}>
+                              <div style={{ fontSize: 18, fontWeight: 'bold', color: '#fa8c16' }}>
+                                {(gpu.memory_used_mb / 1024).toFixed(1)}
+                              </div>
+                              <div style={{ fontSize: 10, color: '#666' }}>显存(GB)</div>
+                            </div>
+                          </Col>
+                        </Row>
+
+                        <div style={{ marginTop: 8 }}>
+                          <Progress
+                            percent={Math.round((gpu.memory_used_mb / gpu.memory_total_mb) * 100)}
+                            size="small"
+                            format={() => `${(gpu.memory_used_mb / 1024).toFixed(1)} / ${(gpu.memory_total_mb / 1024).toFixed(0)} GB`}
+                          />
+                        </div>
+
+                        <Tag color={statusColor} style={{ marginTop: 4 }}>
+                          {statusText}
+                        </Tag>
+                      </Card>
+                    </Col>
+                  )
+                })}
+              </Row>
+            ) : (
+              <Empty description="暂无GPU数据" />
+            )}
           </Card>
         </Col>
+      </Row>
+
+      {/* 当日调度 */}
+      <Row gutter={16} style={{ marginTop: 24 }}>
         <Col span={10}>
           <Card title="当日调度">
             <Space direction="vertical" style={{ width: '100%' }}>
