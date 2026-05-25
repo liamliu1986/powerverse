@@ -14,6 +14,7 @@ from .api.reservations import router as reservations_router
 from .api.dashboard import router as dashboard_router
 from .api.messages import router as messages_router
 from .services.prometheus_fetcher import metrics_sync_loop
+from .api.gpu_discovery import router as gpu_discovery_router
 
 settings = get_settings()
 
@@ -70,6 +71,7 @@ app.include_router(gpus_router)
 app.include_router(reservations_router)
 app.include_router(dashboard_router)
 app.include_router(messages_router)
+app.include_router(gpu_discovery_router)
 
 @app.get("/")
 async def root():

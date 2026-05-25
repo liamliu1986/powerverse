@@ -63,6 +63,8 @@ async def get_utilization(
         .where(
             GPUMetric.time >= datetime.utcnow() - timedelta(minutes=5)
         )
+        .distinct(GPUMetric.gpu_id)
+        .order_by(GPUMetric.gpu_id, GPUMetric.time.desc())
     )
 
     gpu_utils = []
