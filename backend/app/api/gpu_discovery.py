@@ -100,6 +100,13 @@ async def preview_gpu_discovery(
         raise HTTPException(status_code=404, detail="Server not found")
 
     gpus = await discover_gpus_on_server(server)
+    if not gpus:
+        raise HTTPException(
+            status_code=422,
+            detail=f"No GPU devices found on {server.ip_address}. "
+                   f"Please verify that DCGM Exporter is running and "
+                   f"exposing DCGM_FI_DEV_GPU_DEVICE_INDEX metrics."
+        )
     return DiscoverPreviewResponse(
         server_id=server.id,
         server_hostname=server.hostname,

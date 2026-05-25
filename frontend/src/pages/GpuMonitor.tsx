@@ -111,11 +111,16 @@ export default function GpuMonitor() {
       return
     }
     setDiscovering(true)
+    setPreviewGpus([])
     try {
       const data = await gpuApi.discoverPreview(selectedServerId)
       setPreviewGpus(data.gpus)
-    } catch {
-      message.error('发现GPU失败，请检查服务器IP和exporter状态')
+      if (data.gpus.length === 0) {
+        message.warning('未发现GPU设备，请检查服务器IP和exporter状态')
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : '发现GPU失败'
+      message.error(errorMessage)
       setPreviewGpus([])
     } finally {
       setDiscovering(false)
@@ -401,9 +406,9 @@ export default function GpuMonitor() {
             </>
           )}
 
-          {previewGpus.length === 0 && !discovering && selectedServerId && (
+          {previewGpus.length === 0 && !discovering && selectedServerId && !discoveringLoading && (
             <div style={{ textAlign: 'center', color: '#999', padding: 20 }}>
-              点击"预览"按钮发现GPU设备
+              未发现GPU设备，请检查服务器IP和exporter状态
             </div>
           )}
         </Space>
