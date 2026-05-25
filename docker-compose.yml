@@ -35,6 +35,9 @@ services:
       REDIS_URL: redis://powerverse-redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+      PROMETHEUS_TARGETS_FILE: /etc/prometheus/targets/dcgm-targets.json
+    volumes:
+      - ./targets:/etc/prometheus/targets
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,6 +63,7 @@ services:
     network_mode: host
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./targets:/etc/prometheus/targets
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
