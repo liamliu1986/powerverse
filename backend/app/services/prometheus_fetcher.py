@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 PROMETHEUS_URL = "http://172.18.68.183:9090"
 
 
-async def fetch_gpu_metrics_from_prometheus(gpu_id: int, server_ip: str) -> Optional[float]:
+async def fetch_gpu_metrics_from_prometheus(gpu_index: int, server_ip: str) -> Optional[float]:
     import httpx
-    query = f'DCGM_FI_DEV_MEM_COPY_UTIL{{instance="{server_ip}:9400", gpu="{gpu_id}"}}'
+    query = f'DCGM_FI_DEV_MEM_COPY_UTIL{{instance="{server_ip}:9400", gpu="{gpu_index}"}}'
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(f"{PROMETHEUS_URL}/api/v1/query", params={"query": query})
@@ -25,17 +25,17 @@ async def fetch_gpu_metrics_from_prometheus(gpu_id: int, server_ip: str) -> Opti
                     value = result[0]["value"][1]
                     return float(value) if value != "" else None
     except Exception as e:
-        logger.warning(f"Failed to fetch utilization for GPU {gpu_id}: {e}")
+        logger.warning(f"Failed to fetch utilization for GPU {gpu_index}: {e}")
     return None
 
 
-async def fetch_memory_metrics(gpu_id: int, server_ip: str):
+async def fetch_memory_metrics(gpu_index: int, server_ip: str):
     import httpx
     queries = {
-        "memory_used": f'DCGM_FI_DEV_FB_USED{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
-        "memory_free": f'DCGM_FI_DEV_FB_FREE{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
-        "temperature": f'DCGM_FI_DEV_GPU_TEMP{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
-        "power": f'DCGM_FI_DEV_POWER_USAGE{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
+        "memory_used": f'DCGM_FI_DEV_FB_USED{{instance="{server_ip}:9400", gpu="{gpu_index}"}}',
+        "memory_free": f'DCGM_FI_DEV_FB_FREE{{instance="{server_ip}:9400", gpu="{gpu_index}"}}',
+        "temperature": f'DCGM_FI_DEV_GPU_TEMP{{instance="{server_ip}:9400", gpu="{gpu_index}"}}',
+        "power": f'DCGM_FI_DEV_POWER_USAGE{{instance="{server_ip}:9400", gpu="{gpu_index}"}}',
     }
     result = {}
     async with httpx.AsyncClient(timeout=10) as client:
@@ -47,7 +47,7 @@ async def fetch_memory_metrics(gpu_id: int, server_ip: str):
                     if data:
                         result[key] = float(data[0]["value"][1]) if data[0]["value"][1] != "" else 0
             except Exception as e:
-                logger.warning(f"Failed to fetch {key} for GPU {gpu_id}: {e}")
+                logger.warning(f"Failed to fetch {key} for GPU {gpu_index}: {e}")
                 result[key] = 0
     return result
 
@@ -63,9 +63,9 @@ async def sync_all_gpu_metrics():
         for gpu, server in rows:
             server_ip = server.ip_address
 
-            util = await fetch_gpu_metrics_from_prometheus(gpu.id, server_ip)
+            util = await fetch_gpu_metrics_from_prometheus(gpu.gpu_index, server_ip)
             if util is not None:
-                mem = await fetch_memory_metrics(gpu.id, server_ip)
+                mem = await fetch_memory_metrics(gpu.gpu_index, server_ip)
                 metric = GPUMetric(
                     time=datetime.utcnow(),
                     gpu_id=gpu.id,
