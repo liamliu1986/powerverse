@@ -24,7 +24,7 @@ services:
       retries: 5
 
   api:
-    image: lzcy5151/powerverse:v1.0.12
+    image: lzcy5151/powerverse:v1.0.13
     container_name: powerverse-api
     ports:
       - "8001:8000"
