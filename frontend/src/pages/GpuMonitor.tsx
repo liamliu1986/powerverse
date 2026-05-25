@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Table, Button, Drawer, Select, Space, message, Progress, Tag, Modal, List, Divider } from 'antd'
 import { PlusOutlined, ApartmentOutlined, SearchOutlined } from '@ant-design/icons'
 import { gpuApi, GPU, GPUMetric, DiscoveredGPU } from '../services/gpuApi'
+import api from '../services/api'
 import dayjs from 'dayjs'
 
 const { Option } = Select
@@ -41,9 +42,8 @@ export default function GpuMonitor() {
 
   const fetchServers = async () => {
     try {
-      const serversRes = await fetch('http://localhost:8001/api/v1/servers')
-      const serversData = await serversRes.json()
-      setServers(serversData)
+      const serversRes = await api.get('/v1/servers')
+      setServers(serversRes.data)
     } catch {
       message.error('获取服务器列表失败')
     }
