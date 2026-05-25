@@ -10,7 +10,7 @@ from ..models.gpu_metric import GPUMetric
 
 logger = logging.getLogger(__name__)
 
-PROMETHEUS_URL = "http://prometheus:9090"
+PROMETHEUS_URL = "http://172.18.68.183:9090"
 
 
 async def fetch_gpu_metrics_from_prometheus(gpu_id: int, server_ip: str) -> Optional[float]:
