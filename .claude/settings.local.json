@@ -40,7 +40,15 @@
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 'TOKEN=$\\(curl -s -X POST http://localhost:8001/api/v1/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"admin\",\"password\":\"admin123\"}'\\\\'' | jq -r .access_token\\) && echo '\\\\''=== GPU 1 Metrics ==='\\\\'' && curl -s http://localhost:8001/api/v1/gpus/1/metrics -H \"Authorization: Bearer $TOKEN\" | jq .')",
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"cat /home/liuzhi/powerverse/prometheus.yml\")",
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://172.18.4.227:9400/metrics 2>&1 | head -20\")",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(docker push *)",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"cd /home/liuzhi/powerverse && git pull origin master && docker compose down && docker compose up -d\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"docker logs powerverse-api --tail 50\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://localhost:9090/api/v1/query?query=DCGM_FI_DEV_GPU_UTIL 2>&1 | head -30\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://172.18.4.227:9400/metrics 2>&1 | grep -E 'DCGM_FI_DEV_GPU_UTIL|DCGM_FI_DEV_MEMORY_USED' | head -10\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://172.18.4.227:9400/metrics 2>&1 | grep -E '^[D]\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://172.18.4.227:9400/metrics 2>&1 | head -50\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s 'http://localhost:9090/api/v1/query?query=DCGM_FI_DEV_FB_USED' 2>&1\")"
     ]
   }
 }

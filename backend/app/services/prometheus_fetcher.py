@@ -10,12 +10,12 @@ from ..models.gpu_metric import GPUMetric
 
 logger = logging.getLogger(__name__)
 
-PROMETHEUS_URL = "http://powerverse-prometheus:9090"
+PROMETHEUS_URL = "http://prometheus:9090"
 
 
-async def fetch_gpu_metrics_from_prometheus(gpu_id: int, server_ip: str) -> Optional[dict]:
+async def fetch_gpu_metrics_from_prometheus(gpu_id: int, server_ip: str) -> Optional[float]:
     import httpx
-    query = f'DCGM_FI_DEV_GPU_UTIL{{instance="{server_ip}:9400", gpu="{gpu_id}"}}'
+    query = f'DCGM_FI_DEV_MEM_COPY_UTIL{{instance="{server_ip}:9400", gpu="{gpu_id}"}}'
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(f"{PROMETHEUS_URL}/api/v1/query", params={"query": query})
@@ -32,8 +32,8 @@ async def fetch_gpu_metrics_from_prometheus(gpu_id: int, server_ip: str) -> Opti
 async def fetch_memory_metrics(gpu_id: int, server_ip: str):
     import httpx
     queries = {
-        "memory_used": f'DCGM_FI_DEV_MEMORY_USED{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
-        "memory_free": f'DCGM_FI_DEV_MEMORY_FREE{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
+        "memory_used": f'DCGM_FI_DEV_FB_USED{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
+        "memory_free": f'DCGM_FI_DEV_FB_FREE{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
         "temperature": f'DCGM_FI_DEV_GPU_TEMP{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
         "power": f'DCGM_FI_DEV_POWER_USAGE{{instance="{server_ip}:9400", gpu="{gpu_id}"}}',
     }
@@ -46,7 +46,8 @@ async def fetch_memory_metrics(gpu_id: int, server_ip: str):
                     data = resp.json().get("data", {}).get("result", [])
                     if data:
                         result[key] = float(data[0]["value"][1]) if data[0]["value"][1] != "" else 0
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to fetch {key} for GPU {gpu_id}: {e}")
                 result[key] = 0
     return result
 
