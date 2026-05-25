@@ -1,0 +1,47 @@
+# Environment and secrets
+.env
+.env.*
+.env.local
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+credentials.json
+
+# Docker
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Node
+node_modules/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# K8s secrets (should not be committed)
+k8s/secrets.yaml
+
+# Local overrides
+*.local.yml
