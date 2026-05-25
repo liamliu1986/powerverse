@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 from contextlib import asynccontextmanager
 from sqlalchemy import select
 from .config import get_settings
@@ -12,6 +13,7 @@ from .api.gpus import router as gpus_router
 from .api.reservations import router as reservations_router
 from .api.dashboard import router as dashboard_router
 from .api.messages import router as messages_router
+from .services.prometheus_fetcher import metrics_sync_loop
 
 settings = get_settings()
 
@@ -34,7 +36,13 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await init_db()
+    task = asyncio.create_task(metrics_sync_loop(30))
     yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 app = FastAPI(
     title=settings.app_name,

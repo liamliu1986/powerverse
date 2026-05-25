@@ -27,7 +27,20 @@
       "Bash(powershell -Command \"Get-NetIPAddress -InterfaceAlias '*Docker*' 2>&1\")",
       "Bash(ipconfig)",
       "Bash(findstr -i \"ethernet adapter\" -A 5)",
-      "Bash(netsh interface *)"
+      "Bash(netsh interface *)",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://localhost:8001/api/health 2>&1\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 'TOKEN=$\\(curl -s -X POST http://localhost:8001/api/v1/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"admin\",\"password\":\"admin123\"}'\\\\'' | jq -r .access_token\\) && echo \"Token: $TOKEN\" && curl -s http://localhost:8001/api/v1/dashboard/usage-trend?days=7 -H \"Authorization: Bearer $TOKEN\" | head -100')",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 'TOKEN=$\\(curl -s -X POST http://localhost:8001/api/v1/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"admin\",\"password\":\"admin123\"}'\\\\'' | jq -r .access_token\\) && curl -s http://localhost:8001/api/v1/messages/unread-count -H \"Authorization: Bearer $TOKEN\"')",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 'TOKEN=$\\(curl -s -X POST http://localhost:8001/api/v1/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"admin\",\"password\":\"admin123\"}'\\\\'' | jq -r .access_token\\) && echo '\\\\''=== Servers ==='\\\\'' && curl -s http://localhost:8001/api/v1/servers -H \"Authorization: Bearer $TOKEN\" | jq .')",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 'TOKEN=$\\(curl -s -X POST http://localhost:8001/api/v1/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"admin\",\"password\":\"admin123\"}'\\\\'' | jq -r .access_token\\) && echo '\\\\''=== GPUs ==='\\\\'' && curl -s http://localhost:8001/api/v1/gpus -H \"Authorization: Bearer $TOKEN\" | jq .')",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 'TOKEN=$\\(curl -s -X POST http://localhost:8001/api/v1/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"admin\",\"password\":\"admin123\"}'\\\\'' | jq -r .access_token\\) && echo '\\\\''=== Overview ==='\\\\'' && curl -s http://localhost:8001/api/v1/dashboard/overview -H \"Authorization: Bearer $TOKEN\" | jq . && echo '\\\\''=== Utilization ==='\\\\'' && curl -s http://localhost:8001/api/v1/dashboard/utilization -H \"Authorization: Bearer $TOKEN\" | jq .')",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"docker exec powerverse-postgres psql -U postgres -d powerverse -c 'SELECT COUNT\\(*\\) FROM gpu_metrics;'\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"docker exec powerverse-postgres psql -U postgres -d powerverse -c 'SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';'\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"docker exec powerverse-postgres psql -U postgres -d powerverse -c \\\\\"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';\\\\\"\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 'TOKEN=$\\(curl -s -X POST http://localhost:8001/api/v1/auth/login -H '\\\\''Content-Type: application/json'\\\\'' -d '\\\\''{\"username\":\"admin\",\"password\":\"admin123\"}'\\\\'' | jq -r .access_token\\) && echo '\\\\''=== GPU 1 Metrics ==='\\\\'' && curl -s http://localhost:8001/api/v1/gpus/1/metrics -H \"Authorization: Bearer $TOKEN\" | jq .')",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"cat /home/liuzhi/powerverse/prometheus.yml\")",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://172.18.4.227:9400/metrics 2>&1 | head -20\")",
+      "Bash(git push *)"
     ]
   }
 }
