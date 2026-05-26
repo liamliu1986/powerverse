@@ -112,10 +112,10 @@ async def get_reservations_calendar(
     ]
 
 def ensure_tz(dt: datetime) -> datetime:
-    """Ensure datetime is timezone-aware (UTC)"""
+    """Ensure datetime is timezone-aware (UTC), then strip tzinfo for DB storage/comparison"""
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.replace(tzinfo=None)
 
 @router.post("", response_model=ReservationResponse, status_code=status.HTTP_201_CREATED)
 async def create_reservation(
