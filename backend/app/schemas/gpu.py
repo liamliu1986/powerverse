@@ -1,6 +1,6 @@
 from __future__ import annotations
-from pydantic import BaseModel
-from typing import Optional, List, TYPE_CHECKING
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, List, TYPE_CHECKING, Any
 from datetime import datetime
 
 if TYPE_CHECKING:
@@ -22,10 +22,9 @@ class GPUResponse(GPUBase):
     id: int
     server_id: int
     created_at: datetime
-    server: Optional["ServerResponse"] = None
+    server: Any = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GPUMetricResponse(BaseModel):
     time: datetime
@@ -40,7 +39,7 @@ class GPUMetricResponse(BaseModel):
         from_attributes = True
 
 class GPUDetailResponse(GPUResponse):
-    server: "ServerResponse"
+    server: Any = None
     current_metrics: Optional[GPUMetricResponse] = None
 
 class GPUMetricsHistoryResponse(BaseModel):
