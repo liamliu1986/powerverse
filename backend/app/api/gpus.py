@@ -10,6 +10,7 @@ from ..models.gpu_metric import GPUMetric
 from ..models.server import Server
 from ..models.reservation import Reservation, ReservationStatus
 from ..schemas.gpu import GPUResponse, GPUMetricResponse, GPUMetricsHistoryResponse, GPUCreate, GPUUpdate, AvailableSlotsResponse, AvailableSlot
+from ..schemas.server import ServerResponse
 from ..core.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/v1/gpus", tags=["GPUs"])
@@ -36,7 +37,34 @@ async def list_gpus(
     if server_id:
         query = query.where(GPU.server_id == server_id)
     result = await db.execute(query)
-    return result.scalars().all()
+    gpus = result.scalars().all()
+
+    # Convert to response dict with server data
+    response = []
+    for gpu in gpus:
+        gpu_dict = {
+            "id": gpu.id,
+            "server_id": gpu.server_id,
+            "gpu_index": gpu.gpu_index,
+            "model_name": gpu.model_name,
+            "memory_total_mb": gpu.memory_total_mb,
+            "created_at": gpu.created_at,
+        }
+        if gpu.server:
+            gpu_dict["server"] = {
+                "id": gpu.server.id,
+                "hostname": gpu.server.hostname,
+                "ip_address": gpu.server.ip_address,
+                "subsidiary": gpu.server.subsidiary,
+                "machine_room": gpu.server.machine_room,
+                "rack_location": gpu.server.rack_location,
+                "status": gpu.server.status.value if hasattr(gpu.server.status, 'value') else gpu.server.status,
+                "created_at": gpu.server.created_at,
+            }
+        else:
+            gpu_dict["server"] = None
+        response.append(GPUResponse(**gpu_dict))
+    return response
 
 @router.get("/{gpu_id}", response_model=GPUResponse)
 async def get_gpu(
@@ -121,7 +149,7 @@ async def update_gpu(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    result = await db.execute(select(GPU).where(GPU.id == gpu_id))
+    result = await db.execute(select(GPU).options(joinedload(GPU.server)).where(GPU.id == gpu_id))
     gpu = result.scalar_one_or_none()
     if not gpu:
         raise HTTPException(status_code=404, detail="GPU not found")
@@ -132,7 +160,29 @@ async def update_gpu(
 
     await db.flush()
     await db.refresh(gpu)
-    return gpu
+
+    gpu_dict = {
+        "id": gpu.id,
+        "server_id": gpu.server_id,
+        "gpu_index": gpu.gpu_index,
+        "model_name": gpu.model_name,
+        "memory_total_mb": gpu.memory_total_mb,
+        "created_at": gpu.created_at,
+    }
+    if gpu.server:
+        gpu_dict["server"] = {
+            "id": gpu.server.id,
+            "hostname": gpu.server.hostname,
+            "ip_address": gpu.server.ip_address,
+            "subsidiary": gpu.server.subsidiary,
+            "machine_room": gpu.server.machine_room,
+            "rack_location": gpu.server.rack_location,
+            "status": gpu.server.status.value if hasattr(gpu.server.status, 'value') else gpu.server.status,
+            "created_at": gpu.server.created_at,
+        }
+    else:
+        gpu_dict["server"] = None
+    return GPUResponse(**gpu_dict)
 
 @router.get("/{gpu_id}/available-slots", response_model=AvailableSlotsResponse)
 async def get_available_slots(
