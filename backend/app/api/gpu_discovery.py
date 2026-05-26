@@ -88,11 +88,23 @@ async def discover_gpus_on_server(server: Server) -> List[DiscoveredGPU]:
         if model_result and len(model_result) > 0:
             model_name = model_result[0]["value"][1]
 
+        # Try DCGM_FI_DEV_MEMORY_TOTAL first, fallback to FB_USED + FB_FREE
+        memory_total_mb = None
         mem_query = f'DCGM_FI_DEV_MEMORY_TOTAL{{instance="{instance}", gpu="{gpu_index}"}}'
         mem_result = await fetch_from_prometheus(mem_query)
         if mem_result and len(mem_result) > 0:
             memory_bytes = int(mem_result[0]["value"][1])
             memory_total_mb = memory_bytes // (1024 * 1024)
+        else:
+            # Fallback: calculate total from used + free
+            fb_used_query = f'DCGM_FI_DEV_FB_USED{{instance="{instance}", gpu="{gpu_index}"}}'
+            fb_free_query = f'DCGM_FI_DEV_FB_FREE{{instance="{instance}", gpu="{gpu_index}"}}'
+            fb_used_result = await fetch_from_prometheus(fb_used_query)
+            fb_free_result = await fetch_from_prometheus(fb_free_query)
+            if fb_used_result and fb_free_result and len(fb_used_result) > 0 and len(fb_free_result) > 0:
+                fb_used_mb = int(fb_used_result[0]["value"][1])
+                fb_free_mb = int(fb_free_result[0]["value"][1])
+                memory_total_mb = fb_used_mb + fb_free_mb
 
         discovered_gpus.append(DiscoveredGPU(
             gpu_index=gpu_index,
