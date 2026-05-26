@@ -34,3 +34,14 @@ class ReservationWithUserResponse(ReservationResponse):
 class ReservationApproval(BaseModel):
     approved: bool
     reason: Optional[str] = None
+
+class ReservationCalendarResponse(BaseModel):
+    id: int
+    gpu_id: int
+    gpu_name: str
+    model_name: Optional[str]
+    user_name: str
+    start_time: datetime
+    end_time: datetime
+    purpose: Optional[str]
+    status: str

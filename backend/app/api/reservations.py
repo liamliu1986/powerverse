@@ -12,7 +12,7 @@ from ..models.message import Message, MessageType
 from ..models.audit_log import AuditLog
 from ..schemas.reservation import (
     ReservationCreate, ReservationUpdate, ReservationResponse,
-    ReservationWithUserResponse, ReservationApproval
+    ReservationWithUserResponse, ReservationApproval, ReservationCalendarResponse
 )
 from ..core.dependencies import get_current_user, get_current_operator
 
@@ -70,6 +70,43 @@ async def list_reservations(
                 "username": r.user.username,
                 "email": r.user.email,
             } if r.user else None,
+        }
+        for r in reservations
+    ]
+
+@router.get("/calendar", response_model=List[ReservationCalendarResponse])
+async def get_reservations_calendar(
+    start_date: str = Query(..., description="Start date YYYY-MM-DD"),
+    end_date: str = Query(..., description="End date YYYY-MM-DD"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get reservations for calendar view (admin only)"""
+    start = datetime.strptime(start_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0)
+    end = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+
+    query = select(Reservation).options(
+        joinedload(Reservation.gpu).joinedload(GPU.server),
+        joinedload(Reservation.user)
+    ).where(
+        Reservation.start_time <= end,
+        Reservation.end_time >= start
+    ).order_by(Reservation.start_time)
+
+    result = await db.execute(query)
+    reservations = result.scalars().all()
+
+    return [
+        {
+            "id": r.id,
+            "gpu_id": r.gpu_id,
+            "gpu_name": f"{r.gpu.server.hostname}/GPU-{r.gpu.gpu_index}",
+            "model_name": r.gpu.model_name,
+            "user_name": r.user.username,
+            "start_time": r.start_time,
+            "end_time": r.end_time,
+            "purpose": r.purpose,
+            "status": r.status.value if hasattr(r.status, 'value') else r.status
         }
         for r in reservations
     ]
@@ -241,3 +278,75 @@ async def reject_reservation(
     await db.flush()
     await db.refresh(reservation)
     return reservation
+@router.post("/{reservation_id}/cancel", response_model=ReservationResponse)
+async def cancel_reservation(
+    reservation_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Cancel a reservation (user can cancel their own, admin can cancel any)"""
+    result = await db.execute(select(Reservation).where(Reservation.id == reservation_id))
+    reservation = result.scalar_one_or_none()
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+
+    if reservation.user_id != current_user.id and current_user.role == UserRole.USER:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if reservation.status == ReservationStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="Reservation already cancelled")
+
+    reservation.status = ReservationStatus.CANCELLED
+
+    audit = AuditLog(
+        reservation_id=reservation.id,
+        action="cancel",
+        old_status=reservation.status.value if hasattr(reservation.status, 'value') else reservation.status,
+        new_status=ReservationStatus.CANCELLED.value,
+        operator_id=current_user.id
+    )
+    db.add(audit)
+
+    await db.flush()
+    await db.refresh(reservation)
+
+    return {
+        "id": reservation.id,
+        "user_id": reservation.user_id,
+        "gpu_id": reservation.gpu_id,
+        "start_time": reservation.start_time,
+        "end_time": reservation.end_time,
+        "purpose": reservation.purpose,
+        "status": reservation.status.value if hasattr(reservation.status, 'value') else reservation.status,
+        "approved_by": reservation.approved_by,
+        "created_at": reservation.created_at,
+    }
+
+@router.delete("/{reservation_id}")
+async def delete_reservation(
+    reservation_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a cancelled reservation"""
+    result = await db.execute(select(Reservation).where(Reservation.id == reservation_id))
+    reservation = result.scalar_one_or_none()
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+
+    if reservation.user_id != current_user.id and current_user.role == UserRole.USER:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if reservation.status != ReservationStatus.CANCELLED:
+        raise HTTPException(status_code=400, detail="Can only delete cancelled reservations")
+
+    audit_result = await db.execute(
+        select(AuditLog).where(AuditLog.reservation_id == reservation_id)
+    )
+    audit_logs = audit_result.scalars().all()
+    for audit in audit_logs:
+        await db.delete(audit)
+
+    await db.delete(reservation)
+    await db.commit()
+    return {"status": "ok"}

@@ -159,6 +159,26 @@ export default function ReservationList() {
     }
   }
 
+  const handleCancel = async (id: number) => {
+    try {
+      await api.post(`/v1/reservations/${id}/cancel`)
+      message.success('已撤销')
+      fetchReservations()
+    } catch {
+      message.error('撤销失败')
+    }
+  }
+
+  const handleDeleteReservation = async (id: number) => {
+    try {
+      await api.delete(`/v1/reservations/${id}`)
+      message.success('已删除')
+      fetchReservations()
+    } catch {
+      message.error('删除失败')
+    }
+  }
+
   const canManage = user?.role === 'admin' || user?.role === 'operator'
 
   const statusColor: Record<string, string> = {
@@ -207,29 +227,55 @@ export default function ReservationList() {
     {
       title: '操作',
       key: 'action',
-      width: 150,
-      render: (_: unknown, record: Reservation) =>
-        record.status === 'pending' && canManage ? (
+      width: 200,
+      render: (_: unknown, record: Reservation) => {
+        const isOwn = record.user_id === user?.id
+        return (
           <Space>
-            <Button
-              size="small"
-              type="link"
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleApprove(record.id)}
-            >
-              批准
-            </Button>
-            <Button
-              size="small"
-              type="link"
-              danger
-              icon={<CloseCircleOutlined />}
-              onClick={() => setRejectModal({ open: true, reservationId: record.id })}
-            >
-              拒绝
-            </Button>
+            {record.status === 'pending' && canManage && (
+              <>
+                <Button
+                  size="small"
+                  type="link"
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => handleApprove(record.id)}
+                >
+                  批准
+                </Button>
+                <Button
+                  size="small"
+                  type="link"
+                  danger
+                  icon={<CloseCircleOutlined />}
+                  onClick={() => setRejectModal({ open: true, reservationId: record.id })}
+                >
+                  拒绝
+                </Button>
+              </>
+            )}
+            {record.status !== 'cancelled' && (isOwn || canManage) && (
+              <Button
+                size="small"
+                type="link"
+                danger
+                onClick={() => handleCancel(record.id)}
+              >
+                撤销
+              </Button>
+            )}
+            {record.status === 'cancelled' && (isOwn || canManage) && (
+              <Button
+                size="small"
+                type="link"
+                danger
+                onClick={() => handleDeleteReservation(record.id)}
+              >
+                删除
+              </Button>
+            )}
           </Space>
-        ) : null,
+        )
+      },
     },
   ]
 

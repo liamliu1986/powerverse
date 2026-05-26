@@ -70,3 +70,21 @@ async def mark_all_as_read(
         message.is_read = True
     await db.commit()
     return {"status": "ok", "updated": len(messages)}
+
+@router.delete("/{message_id}")
+async def delete_message(
+    message_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(Message).where(
+            Message.id == message_id,
+            Message.user_id == current_user.id
+        )
+    )
+    message = result.scalar_one_or_none()
+    if message:
+        await db.delete(message)
+        await db.commit()
+    return {"status": "ok"}

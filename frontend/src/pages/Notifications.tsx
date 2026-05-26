@@ -45,6 +45,16 @@ export default function Notifications() {
     }
   }
 
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/v1/messages/${id}`)
+      message.success('已删除')
+      fetchMessages()
+    } catch {
+      message.error('删除失败')
+    }
+  }
+
   const handleMarkAllAsRead = async () => {
     try {
       await api.put('/v1/messages/read-all')
@@ -114,13 +124,19 @@ export default function Notifications() {
     {
       title: '操作',
       key: 'action',
-      width: 100,
-      render: (_: unknown, record: Message) =>
-        !record.is_read ? (
-          <Button size="small" onClick={() => handleMarkAsRead(record.id)}>
-            标记已读
+      width: 150,
+      render: (_: unknown, record: Message) => (
+        <Space>
+          {!record.is_read && (
+            <Button size="small" onClick={() => handleMarkAsRead(record.id)}>
+              标记已读
+            </Button>
+          )}
+          <Button size="small" danger onClick={() => handleDelete(record.id)}>
+            删除
           </Button>
-        ) : null,
+        </Space>
+      ),
     },
   ]
 
