@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from typing import List, Optional
+from sqlalchemy.orm import joinedload
+from typing import List, Optional, Dict
 from datetime import datetime
 from ..database import get_db
 from ..models.reservation import Reservation, ReservationStatus
@@ -45,6 +46,10 @@ async def create_reservation(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    gpu_result = await db.execute(select(GPU).where(GPU.id == reservation_data.gpu_id))
+    if not gpu_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="GPU not found")
+
     conflict = await db.execute(
         select(Reservation).where(
             and_(
@@ -66,7 +71,18 @@ async def create_reservation(
     db.add(reservation)
     await db.flush()
     await db.refresh(reservation)
-    return reservation
+
+    return {
+        "id": reservation.id,
+        "user_id": reservation.user_id,
+        "gpu_id": reservation.gpu_id,
+        "start_time": reservation.start_time,
+        "end_time": reservation.end_time,
+        "purpose": reservation.purpose,
+        "status": reservation.status.value if hasattr(reservation.status, 'value') else reservation.status,
+        "approved_by": reservation.approved_by,
+        "created_at": reservation.created_at,
+    }
 
 @router.get("/{reservation_id}", response_model=ReservationResponse)
 async def get_reservation(
