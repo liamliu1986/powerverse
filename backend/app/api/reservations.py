@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from typing import List, Optional
-from datetime import datetime
+from sqlalchemy.orm import joinedload
+from typing import List, Optional, Dict
+from datetime import datetime, timezone
 from ..database import get_db
 from ..models.reservation import Reservation, ReservationStatus
 from ..models.gpu import GPU
@@ -39,19 +40,32 @@ async def list_reservations(
     result = await db.execute(query.order_by(Reservation.created_at.desc()))
     return result.scalars().all()
 
+def ensure_tz(dt: datetime) -> datetime:
+    """Ensure datetime is timezone-aware (UTC)"""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
 @router.post("", response_model=ReservationResponse, status_code=status.HTTP_201_CREATED)
 async def create_reservation(
     reservation_data: ReservationCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    gpu_result = await db.execute(select(GPU).where(GPU.id == reservation_data.gpu_id))
+    if not gpu_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="GPU not found")
+
+    start_time = ensure_tz(reservation_data.start_time)
+    end_time = ensure_tz(reservation_data.end_time)
+
     conflict = await db.execute(
         select(Reservation).where(
             and_(
                 Reservation.gpu_id == reservation_data.gpu_id,
                 Reservation.status == ReservationStatus.APPROVED,
-                Reservation.start_time < reservation_data.end_time,
-                Reservation.end_time > reservation_data.start_time
+                Reservation.start_time < end_time,
+                Reservation.end_time > start_time
             )
         )
     )
@@ -59,14 +73,28 @@ async def create_reservation(
         raise HTTPException(status_code=409, detail="Time slot already reserved")
 
     reservation = Reservation(
-        **reservation_data.model_dump(),
+        gpu_id=reservation_data.gpu_id,
+        start_time=start_time,
+        end_time=end_time,
+        purpose=reservation_data.purpose,
         user_id=current_user.id,
         status=ReservationStatus.PENDING
     )
     db.add(reservation)
     await db.flush()
     await db.refresh(reservation)
-    return reservation
+
+    return {
+        "id": reservation.id,
+        "user_id": reservation.user_id,
+        "gpu_id": reservation.gpu_id,
+        "start_time": reservation.start_time,
+        "end_time": reservation.end_time,
+        "purpose": reservation.purpose,
+        "status": reservation.status.value if hasattr(reservation.status, 'value') else reservation.status,
+        "approved_by": reservation.approved_by,
+        "created_at": reservation.created_at,
+    }
 
 @router.get("/{reservation_id}", response_model=ReservationResponse)
 async def get_reservation(

@@ -49,6 +49,7 @@
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://172.18.4.227:9400/metrics 2>&1 | grep -E '^[D]\")",
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s http://172.18.4.227:9400/metrics 2>&1 | head -50\")",
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"curl -s 'http://localhost:9090/api/v1/query?query=DCGM_FI_DEV_FB_USED' 2>&1\")",
+<<<<<<< Updated upstream
       "Bash(python -c *)",
       "Bash(gh repo *)",
       "Bash(mkdir -p ~/.claude/skills/auto-fix-github-issues/docs/specs ~/.claude/skills/auto-fix-github-issues/docs/plans)",
@@ -127,6 +128,14 @@
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"cd ~/powerverse && docker compose ps -a && docker compose logs api\")",
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"cd ~/powerverse && sed -i 's/lzcy5151\\\\/powerverse:v1.20260526.1/lzcy5151\\\\/powerverse:v1.20260526.2/g' docker-compose.yml && docker compose down && docker compose up -d\")",
       "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa liuzhi@172.18.68.183 \"cd ~/powerverse && docker compose logs api 2>&1 | tail -50\")"
+=======
+      "Bash(cd d:/Projects/PowerVerse && rm .claude/scheduled_tasks.lock && git checkout bugfix/issue-7-reservation-failed)",
+      "Bash(git stash *)",
+      "Bash(rm .claude/scheduled_tasks.lock)"
+    ],
+    "additionalDirectories": [
+      "d:\\Projects\\PowerVerse\\.claude"
+>>>>>>> Stashed changes
     ]
   }
 }
