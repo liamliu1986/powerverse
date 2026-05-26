@@ -18,7 +18,7 @@ from ..core.dependencies import get_current_user, get_current_operator
 
 router = APIRouter(prefix="/api/v1/reservations", tags=["Reservations"])
 
-@router.get("", response_model=List[ReservationResponse])
+@router.get("")
 async def list_reservations(
     status: Optional[ReservationStatus] = Query(None),
     gpu_id: Optional[int] = Query(None),
@@ -26,7 +26,10 @@ async def list_reservations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    query = select(Reservation)
+    query = select(Reservation).options(
+        joinedload(Reservation.gpu).joinedload(GPU.server),
+        joinedload(Reservation.user)
+    )
     if current_user.role == UserRole.USER:
         query = query.where(Reservation.user_id == current_user.id)
     else:
@@ -38,7 +41,38 @@ async def list_reservations(
         query = query.where(Reservation.gpu_id == gpu_id)
 
     result = await db.execute(query.order_by(Reservation.created_at.desc()))
-    return result.scalars().all()
+    reservations = result.scalars().all()
+
+    return [
+        {
+            "id": r.id,
+            "user_id": r.user_id,
+            "gpu_id": r.gpu_id,
+            "start_time": r.start_time,
+            "end_time": r.end_time,
+            "purpose": r.purpose,
+            "status": r.status.value if hasattr(r.status, 'value') else r.status,
+            "approved_by": r.approved_by,
+            "created_at": r.created_at,
+            "gpu": {
+                "id": r.gpu.id,
+                "server_id": r.gpu.server_id,
+                "gpu_index": r.gpu.gpu_index,
+                "model_name": r.gpu.model_name,
+                "memory_total_mb": r.gpu.memory_total_mb,
+                "server": {
+                    "hostname": r.gpu.server.hostname,
+                    "ip_address": r.gpu.server.ip_address,
+                } if r.gpu.server else None,
+            } if r.gpu else None,
+            "user": {
+                "id": r.user.id,
+                "username": r.user.username,
+                "email": r.user.email,
+            } if r.user else None,
+        }
+        for r in reservations
+    ]
 
 def ensure_tz(dt: datetime) -> datetime:
     """Ensure datetime is timezone-aware (UTC)"""
