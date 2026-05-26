@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Modal, Form, Input, DatePicker, Select, Tag, Space, message } from 'antd'
+import { Table, Button, Modal, Form, Input, DatePicker, Select, Tag, Space, message, Alert } from 'antd'
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
+import { gpuApi, AvailableSlot } from '../services/gpuApi'
 import dayjs from 'dayjs'
 
 interface GPU {
@@ -80,6 +81,8 @@ export default function ReservationList() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
   const [form] = Form.useForm()
   const user = useAuthStore((state) => state.user)
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
+  const [selectedGpuId, setSelectedGpuId] = useState<number | null>(null)
 
   const fetchReservations = async () => {
     setLoading(true)
@@ -106,6 +109,17 @@ export default function ReservationList() {
     fetchReservations()
     fetchGpus()
   }, [])
+
+  const handleGpuSelect = async (gpuId: number) => {
+    setSelectedGpuId(gpuId)
+    try {
+      const date = dayjs().format('YYYY-MM-DD')
+      const data = await gpuApi.getAvailableSlots(gpuId, date)
+      setAvailableSlots(data.slots)
+    } catch {
+      setAvailableSlots([])
+    }
+  }
 
   const handleCreate = async (values: { gpu_id: number; start_time: dayjs.Dayjs; end_time: dayjs.Dayjs; purpose?: string }) => {
     try {
@@ -265,7 +279,7 @@ export default function ReservationList() {
             label="选择GPU"
             rules={[{ required: true, message: '请选择GPU' }]}
           >
-            <Select placeholder="请选择GPU">
+            <Select placeholder="请选择GPU" onChange={handleGpuSelect}>
               {gpus.map((gpu) => (
                 <Select.Option key={gpu.id} value={gpu.id}>
                   {gpu.server?.hostname || `Server #${gpu.server_id}`} / GPU {gpu.gpu_index}
@@ -274,6 +288,26 @@ export default function ReservationList() {
               ))}
             </Select>
           </Form.Item>
+
+          {selectedGpuId && availableSlots.length > 0 && (
+            <Alert
+              message="今日可用时段 (利用率<50% 且 显存<50%)"
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              description={
+                <div style={{ maxHeight: 100, overflow: 'auto' }}>
+                  {availableSlots.map((slot, i) => (
+                    <div key={i} style={{ fontSize: 12 }}>
+                      {dayjs(slot.start_time).format('HH:mm')}-{dayjs(slot.end_time).format('HH:mm')}
+                      {' '}(利用率{(slot.avg_utilization_pct).toFixed(0)}%, 显存{(slot.avg_memory_used_mb / 1024).toFixed(1)}GB)
+                    </div>
+                  ))}
+                </div>
+              }
+            />
+          )}
+
           <Form.Item
             name="start_time"
             label="开始时间"

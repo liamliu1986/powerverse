@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, Row, Col, Statistic, Timeline, DatePicker, Progress, Spin, Space, Tag, Empty, Badge } from 'antd'
 import { CloudServerOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, DashboardOutlined } from '@ant-design/icons'
 import { dashboardApi, DashboardOverview, UtilizationStats, ScheduleItem, UsageTrendItem } from '../services/dashboardApi'
+import { gpuApi, GPUMetric } from '../services/gpuApi'
 import dayjs from 'dayjs'
 
 export default function Dashboard() {
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([])
   const [scheduleDate, setScheduleDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [trend, setTrend] = useState<UsageTrendItem[]>([])
+  const [gpuHistoryMap, setGpuHistoryMap] = useState<Record<number, GPUMetric[]>>({})
 
   useEffect(() => {
     loadAllData()
@@ -31,6 +33,20 @@ export default function Dashboard() {
       setOverview(overviewRes.data)
       setUtilization(utilRes.data)
       setTrend(trendRes.data.items)
+
+      // 加载GPU历史数据用于24h趋势图
+      if (utilRes.data.gpus && utilRes.data.gpus.length > 0) {
+        const gpuIds = utilRes.data.gpus.map((g: { gpu_id: number }) => g.gpu_id)
+        const historyPromises = gpuIds.slice(0, 8).map((id: number) =>
+          gpuApi.getMetricsHistory(id, 24).catch(() => ({ gpu_id: id, metrics: [] }))
+        )
+        const historyResults = await Promise.all(historyPromises)
+        const historyMap: Record<number, GPUMetric[]> = {}
+        historyResults.forEach((r: { gpu_id: number; metrics: GPUMetric[] }) => {
+          historyMap[r.gpu_id] = r.metrics
+        })
+        setGpuHistoryMap(historyMap)
+      }
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
     } finally {
@@ -192,6 +208,30 @@ export default function Dashboard() {
                             format={() => `${(gpu.memory_used_mb / 1024).toFixed(1)} / ${(gpu.memory_total_mb / 1024).toFixed(0)} GB`}
                           />
                         </div>
+
+                        {/* 24h utilization trend mini chart */}
+                        {gpuHistoryMap[gpu.gpu_id] && gpuHistoryMap[gpu.gpu_id].length > 0 && (
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ fontSize: 10, color: '#999', marginBottom: 2 }}>24h趋势</div>
+                            <div style={{ display: 'flex', gap: 1, alignItems: 'flex-end', height: 24 }}>
+                              {gpuHistoryMap[gpu.gpu_id].slice(-12).map((m, i) => {
+                                const max = Math.max(...gpuHistoryMap[gpu.gpu_id].map((x) => x.utilization_pct ?? 0), 1)
+                                return (
+                                  <div
+                                    key={i}
+                                    style={{
+                                      flex: 1,
+                                      height: `${((m.utilization_pct ?? 0) / max) * 100}%`,
+                                      backgroundColor: '#1890ff',
+                                      borderRadius: '1px 1px 0 0',
+                                      minHeight: 2,
+                                    }}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
 
                         <Tag color={statusColor} style={{ marginTop: 4 }}>
                           {statusText}

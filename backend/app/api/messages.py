@@ -36,7 +36,7 @@ async def get_messages(
     messages = result.scalars().all()
     return messages
 
-@router.post("/{message_id}/read")
+@router.put("/{message_id}/read")
 async def mark_as_read(
     message_id: int,
     db: AsyncSession = Depends(get_db),
@@ -53,3 +53,20 @@ async def mark_as_read(
         message.is_read = True
         await db.commit()
     return {"status": "ok"}
+
+@router.put("/read-all")
+async def mark_all_as_read(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(Message).where(
+            Message.user_id == current_user.id,
+            Message.is_read == False
+        )
+    )
+    messages = result.scalars().all()
+    for message in messages:
+        message.is_read = True
+    await db.commit()
+    return {"status": "ok", "updated": len(messages)}

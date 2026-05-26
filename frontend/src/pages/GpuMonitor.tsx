@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Drawer, Select, Space, message, Progress, Tag, Modal, List, Divider } from 'antd'
-import { PlusOutlined, ApartmentOutlined, SearchOutlined } from '@ant-design/icons'
+import { Table, Button, Drawer, Select, Space, message, Progress, Tag, Modal, List, Divider, Form, Input, InputNumber } from 'antd'
+import { PlusOutlined, ApartmentOutlined, SearchOutlined, EditOutlined } from '@ant-design/icons'
 import { gpuApi, GPU, GPUMetric, DiscoveredGPU } from '../services/gpuApi'
 import api from '../services/api'
 import dayjs from 'dayjs'
@@ -35,10 +35,35 @@ export default function GpuMonitor() {
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null)
   const [discoveringLoading, setDiscoveringLoading] = useState(false)
 
+  // 状态列批量指标
+  const [metricsMap, setMetricsMap] = useState<Record<number, GPUMetric>>({})
+
+  // 编辑GPU相关状态
+  const [editModalVisible, setEditModalVisible] = useState(false)
+  const [editingGpu, setEditingGpu] = useState<GPUWithServer | null>(null)
+  const [editForm] = Form.useForm()
+
   useEffect(() => {
     fetchServers()
     fetchGpus()
   }, [])
+
+  // 批量获取GPU指标用于状态列
+  useEffect(() => {
+    if (gpus.length === 0) return
+    const gpuIds = gpus.map(g => g.id)
+    const interval = setInterval(async () => {
+      try {
+        const data = await gpuApi.getBatchMetrics(gpuIds)
+        setMetricsMap(data)
+      } catch {
+        // ignore
+      }
+    }, 30000)
+    // 首次立即加载
+    gpuApi.getBatchMetrics(gpuIds).then(setMetricsMap).catch(() => {})
+    return () => clearInterval(interval)
+  }, [gpus])
 
   const fetchServers = async () => {
     try {
@@ -147,6 +172,30 @@ export default function GpuMonitor() {
     }
   }
 
+  const handleEditClick = (gpu: GPUWithServer) => {
+    setEditingGpu(gpu)
+    editForm.setFieldsValue({
+      model_name: gpu.model_name,
+      memory_total_mb: gpu.memory_total_mb,
+    })
+    setEditModalVisible(true)
+  }
+
+  const handleEditSave = async () => {
+    try {
+      const values = await editForm.validateFields()
+      await gpuApi.update(editingGpu!.id, {
+        model_name: values.model_name || null,
+        memory_total_mb: values.memory_total_mb || null,
+      })
+      message.success('GPU信息已更新')
+      setEditModalVisible(false)
+      fetchGpus(filterServerId || undefined)
+    } catch {
+      message.error('更新失败')
+    }
+  }
+
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     {
@@ -171,23 +220,27 @@ export default function GpuMonitor() {
       key: 'status',
       width: 80,
       render: (_: unknown, r: GPUWithServer) => {
-        if (metrics && selectedGpu?.id === r.id) {
-          const util = metrics.utilization_pct ?? 0
-          if (util > 80) return <Tag color="red">繁忙</Tag>
-          if (util > 20) return <Tag color="orange">使用中</Tag>
-          return <Tag color="green">空闲</Tag>
-        }
-        return <Tag>--</Tag>
+        const m = metricsMap[r.id]
+        if (!m) return <Tag>--</Tag>
+        const util = m.utilization_pct ?? 0
+        if (util > 80) return <Tag color="red">繁忙</Tag>
+        if (util > 20) return <Tag color="orange">使用中</Tag>
+        return <Tag color="green">空闲</Tag>
       },
     },
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 120,
       render: (_: unknown, record: GPUWithServer) => (
-        <Button size="small" onClick={() => handleViewDetails(record)}>
-          详情
-        </Button>
+        <Space size={4}>
+          <Button size="small" icon={<EditOutlined />} onClick={() => handleEditClick(record)}>
+            编辑
+          </Button>
+          <Button size="small" onClick={() => handleViewDetails(record)}>
+            详情
+          </Button>
+        </Space>
       ),
     },
   ]
@@ -412,6 +465,25 @@ export default function GpuMonitor() {
             </div>
           )}
         </Space>
+      </Modal>
+
+      {/* 编辑GPU Modal */}
+      <Modal
+        title="编辑GPU信息"
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        onOk={handleEditSave}
+        okText="保存"
+        confirmLoading={discoveringLoading}
+      >
+        <Form form={editForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="model_name" label="GPU型号">
+            <Input placeholder="如 NVIDIA A100" />
+          </Form.Item>
+          <Form.Item name="memory_total_mb" label="显存 (MB)">
+            <InputNumber min={0} style={{ width: '100%' }} placeholder="如 81920" />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   )

@@ -10,10 +10,15 @@ class GPUBase(BaseModel):
 class GPUCreate(GPUBase):
     server_id: int
 
+class GPUUpdate(BaseModel):
+    model_name: Optional[str] = None
+    memory_total_mb: Optional[int] = None
+
 class GPUResponse(GPUBase):
     id: int
     server_id: int
     created_at: datetime
+    server: Optional["ServerResponse"] = None
 
     class Config:
         from_attributes = True
@@ -37,3 +42,14 @@ class GPUDetailResponse(GPUResponse):
 class GPUMetricsHistoryResponse(BaseModel):
     gpu_id: int
     metrics: List[GPUMetricResponse]
+
+class AvailableSlot(BaseModel):
+    start_time: datetime
+    end_time: datetime
+    avg_utilization_pct: float
+    avg_memory_used_mb: int
+
+class AvailableSlotsResponse(BaseModel):
+    gpu_id: int
+    date: str
+    slots: List[AvailableSlot]

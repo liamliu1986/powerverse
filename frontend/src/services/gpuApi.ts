@@ -44,6 +44,19 @@ export interface DiscoverResponse {
   gpus: DiscoveredGPU[]
 }
 
+export interface AvailableSlot {
+  start_time: string
+  end_time: string
+  avg_utilization_pct: number
+  avg_memory_used_mb: number
+}
+
+export interface AvailableSlotsResponse {
+  gpu_id: number
+  date: string
+  slots: AvailableSlot[]
+}
+
 export const gpuApi = {
   list: async (serverId?: number): Promise<GPU[]> => {
     const params = serverId ? { server_id: serverId } : {}
@@ -73,6 +86,21 @@ export const gpuApi = {
 
   discover: async (serverId: number): Promise<DiscoverResponse> => {
     const response = await api.post('/v1/gpus/discover', null, { params: { server_id: serverId } })
+    return response.data
+  },
+
+  getBatchMetrics: async (gpuIds: number[]): Promise<Record<number, GPUMetric>> => {
+    const response = await api.get('/v1/gpus/metrics/batch', { params: { gpu_ids: gpuIds.join(',') } })
+    return response.data
+  },
+
+  update: async (gpuId: number, data: Partial<GPU>): Promise<GPU> => {
+    const response = await api.put(`/v1/gpus/${gpuId}`, data)
+    return response.data
+  },
+
+  getAvailableSlots: async (gpuId: number, date: string): Promise<AvailableSlotsResponse> => {
+    const response = await api.get(`/v1/gpus/${gpuId}/available-slots`, { params: { date } })
     return response.data
   },
 }
