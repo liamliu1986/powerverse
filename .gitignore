@@ -45,3 +45,4 @@ k8s/secrets.yaml
 
 # Local overrides
 *.local.yml
+.claude/settings.local.json

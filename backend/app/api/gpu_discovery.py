@@ -5,6 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 import httpx
 import logging
+import os
 
 from ..database import get_db
 from ..models.gpu import GPU
@@ -13,7 +14,10 @@ from ..core.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
-PROMETHEUS_URL = "http://172.18.68.183:9090"
+# Configure via PROMETHEUS_HOST environment variable in production
+_PROMETHEUS_HOST = os.environ.get("PROMETHEUS_HOST", "localhost")
+_PROMETHEUS_PORT = os.environ.get("PROMETHEUS_PORT", "9090")
+PROMETHEUS_URL = f"http://{_PROMETHEUS_HOST}:{_PROMETHEUS_PORT}"
 
 
 class DiscoveredGPU(BaseModel):

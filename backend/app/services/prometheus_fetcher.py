@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import select
@@ -10,7 +11,10 @@ from ..models.gpu_metric import GPUMetric
 
 logger = logging.getLogger(__name__)
 
-PROMETHEUS_URL = "http://172.18.68.183:9090"
+# Configure via PROMETHEUS_URL environment variable in production
+_PROMETHEUS_HOST = os.environ.get("PROMETHEUS_HOST", "localhost")
+_PROMETHEUS_PORT = os.environ.get("PROMETHEUS_PORT", "9090")
+PROMETHEUS_URL = f"http://{_PROMETHEUS_HOST}:{_PROMETHEUS_PORT}"
 
 
 async def fetch_gpu_metrics_from_prometheus(gpu_index: int, server_ip: str) -> Optional[float]:

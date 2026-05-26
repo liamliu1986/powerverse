@@ -1,8 +1,8 @@
 [
   {
-    "targets": ["172.18.4.227:9400"],
+    "targets": ["${GPU_SERVER_IP}:9400"],
     "labels": {
-      "server": "gpu-server-1"
+      "server": "${SERVER_NAME:-gpu-server-1}"
     }
   }
 ]

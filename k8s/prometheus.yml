@@ -17,8 +17,8 @@ scrape_configs:
   # DCGM Exporter on GPU servers
   - job_name: 'dcgm-exporter'
     static_configs:
-      - targets: ['172.18.4.227:9400']
+      - targets: ['${DCGM_EXPORTER_TARGET:-localhost:9400}']
         labels:
-          server: 'gpu-server-1'
-          subsidiary: '子公司A'
-          machine_room: '机房1'
+          server: '${SERVER_NAME:-gpu-server-1}'
+          subsidiary: '${SUBSIDIARY:-子公司A}'
+          machine_room: '${MACHINE_ROOM:-机房1}'

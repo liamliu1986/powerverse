@@ -8,7 +8,10 @@ from typing import List, Set
 
 logger = logging.getLogger(__name__)
 
-PROMETHEUS_URL = "http://172.18.68.183:9090"
+# Configure via PROMETHEUS_HOST environment variable in production
+_PROMETHEUS_HOST = os.environ.get("PROMETHEUS_HOST", "localhost")
+_PROMETHEUS_PORT = os.environ.get("PROMETHEUS_PORT", "9090")
+PROMETHEUS_URL = f"http://{_PROMETHEUS_HOST}:{_PROMETHEUS_PORT}"
 # In Docker, targets file is mounted at /etc/prometheus/targets
 # Locally, use project root targets directory
 TARGETS_FILE = Path(os.environ.get(
