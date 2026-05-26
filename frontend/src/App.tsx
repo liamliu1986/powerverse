@@ -9,6 +9,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import GpuMonitor from './pages/GpuMonitor'
 import ReservationList from './pages/ReservationList'
+import ReservationCalendar from './pages/ReservationCalendar'
 import Servers from './pages/Servers'
 import Notifications from './pages/Notifications'
 
@@ -41,6 +42,7 @@ function AppLayout() {
     { key: '/servers', icon: <AppstoreOutlined />, label: '服务器' },
     { key: '/gpus', icon: <ControlOutlined />, label: 'GPU监控' },
     { key: '/reservations', icon: <ScheduleOutlined />, label: '预约管理' },
+    { key: '/calendar', icon: <ScheduleOutlined />, label: '预约日历' },
     {
       key: '/notifications',
       icon: <BellOutlined />,
@@ -84,6 +86,7 @@ function AppLayout() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/gpus" element={<GpuMonitor />} />
           <Route path="/reservations" element={<ReservationList />} />
+          <Route path="/calendar" element={<ReservationCalendar />} />
           <Route path="/servers" element={<Servers />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="*" element={<Navigate to="/" replace />} />
