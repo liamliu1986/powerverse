@@ -36,8 +36,23 @@ export interface ReservationCreate {
   purpose?: string
 }
 
+export interface ReservationCalendar {
+  id: number
+  gpu_id: number
+  gpu_name: string
+  model_name?: string
+  user_name: string
+  start_time: string
+  end_time: string
+  purpose?: string
+  status: string
+}
+
 export const reservationApi = {
   list: () => api.get<Reservation[]>('/v1/reservations'),
+
+  getCalendar: (start: string, end: string) =>
+    api.get<ReservationCalendar[]>('/v1/reservations/calendar', { params: { start_date: start, end_date: end } }),
 
   create: (data: ReservationCreate) =>
     api.post('/v1/reservations', {
