@@ -13,9 +13,16 @@ export default function Dashboard() {
   const [scheduleDate, setScheduleDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [trend, setTrend] = useState<UsageTrendItem[]>([])
   const [gpuHistoryMap, setGpuHistoryMap] = useState<Record<number, GPUMetric[]>>({})
+  const [chartWidth, setChartWidth] = useState(window.innerWidth)
 
   useEffect(() => {
     loadAllData()
+  }, [])
+
+  useEffect(() => {
+    const handleResize = () => setChartWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   useEffect(() => {
@@ -306,55 +313,40 @@ export default function Dashboard() {
             {trend.length === 0 ? (
               <Empty description="暂无趋势数据" />
             ) : (
-              <div style={{ position: 'relative', height: 200, padding: '10 50 30 50' }}>
-                <svg width="100%" height="180" viewBox="0 0 700 180" style={{ overflow: 'visible' }}>
+              <div style={{ height: 220, position: 'relative' }}>
+                <svg width="100%" height="200" style={{ display: 'block' }} preserveAspectRatio="none">
                   {/* 左Y轴标签 */}
-                  <text x="5" y="15" fontSize="10" fill="#999">100%</text>
-                  <text x="5" y="90" fontSize="10" fill="#999">50%</text>
-                  <text x="5" y="165" fontSize="10" fill="#999">0%</text>
-
-                  {/* 右Y轴标签 */}
-                  <text x="695" y="15" fontSize="10" fill="#999" textAnchor="end">100%</text>
-                  <text x="695" y="90" fontSize="10" fill="#999" textAnchor="end">50%</text>
-                  <text x="695" y="165" fontSize="10" fill="#999" textAnchor="end">0%</text>
+                  <text x="30" y="15" fontSize="10" fill="#999">100%</text>
+                  <text x="30" y="95" fontSize="10" fill="#999">50%</text>
+                  <text x="30" y="175" fontSize="10" fill="#999">0%</text>
 
                   {/* 网格线 */}
-                  <line x1="50" y1="10" x2="690" y2="10" stroke="#eee" strokeWidth="1" />
-                  <line x1="50" y1="90" x2="690" y2="90" stroke="#eee" strokeWidth="1" />
-                  <line x1="50" y1="170" x2="690" y2="170" stroke="#eee" strokeWidth="1" />
+                  <line x1="45" y1="10" x2="100%" y2="10" stroke="#eee" strokeWidth="1" />
+                  <line x1="45" y1="90" x2="100%" y2="90" stroke="#eee" strokeWidth="1" />
+                  <line x1="45" y1="170" x2="100%" y2="170" stroke="#eee" strokeWidth="1" />
 
                   {/* 计算曲线点 - 利用率(蓝色) */}
                   {(() => {
                     const maxUtil = Math.max(...trend.map((t) => t.avg_utilization), 1)
                     const points = trend.map((item, i) => {
-                      const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                      const pct = trend.length <= 1 ? 0 : i / (trend.length - 1)
+                      const x = 45 + pct * (chartWidth - 120)
                       const y = 170 - (item.avg_utilization / maxUtil) * 160
-                      return `${x},${y}`
+                      return { x, y, item }
                     })
                     return (
                       <>
                         <polyline
-                          points={points.join(' ')}
+                          points={points.map((p) => `${p.x},${p.y}`).join(' ')}
                           fill="none"
                           stroke="#1890ff"
                           strokeWidth="2"
                           strokeLinejoin="round"
                           strokeLinecap="round"
                         />
-                        {/* 数据点 */}
-                        {trend.map((item, i) => {
-                          const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
-                          const y = 170 - (item.avg_utilization / maxUtil) * 160
-                          return (
-                            <circle
-                              key={i}
-                              cx={x}
-                              cy={y}
-                              r="3"
-                              fill="#1890ff"
-                            />
-                          )
-                        })}
+                        {points.map((p, i) => (
+                          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#1890ff" />
+                        ))}
                       </>
                     )
                   })()}
@@ -363,14 +355,15 @@ export default function Dashboard() {
                   {(() => {
                     const maxMemUtil = Math.max(...trend.map((t) => t.memory_utilization_pct), 1)
                     const points = trend.map((item, i) => {
-                      const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                      const pct = trend.length <= 1 ? 0 : i / (trend.length - 1)
+                      const x = 45 + pct * (chartWidth - 120)
                       const y = 170 - (item.memory_utilization_pct / maxMemUtil) * 160
-                      return `${x},${y}`
+                      return { x, y, item }
                     })
                     return (
                       <>
                         <polyline
-                          points={points.join(' ')}
+                          points={points.map((p) => `${p.x},${p.y}`).join(' ')}
                           fill="none"
                           stroke="#fa8c16"
                           strokeWidth="2"
@@ -378,43 +371,40 @@ export default function Dashboard() {
                           strokeLinejoin="round"
                           strokeLinecap="round"
                         />
-                        {/* 数据点 */}
-                        {trend.map((item, i) => {
-                          const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
-                          const y = 170 - (item.memory_utilization_pct / maxMemUtil) * 160
-                          return (
-                            <circle
-                              key={i}
-                              cx={x}
-                              cy={y}
-                              r="3"
-                              fill="#fa8c16"
-                            />
-                          )
-                        })}
+                        {points.map((p, i) => (
+                          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#fa8c16" />
+                        ))}
                       </>
                     )
                   })()}
 
                   {/* X轴标签 */}
-                  {trend.map((item, i) => {
-                    const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                  {(() => {
+                    const points = trend.map((item, i) => {
+                      const pct = trend.length <= 1 ? 0 : i / (trend.length - 1)
+                      const x = 45 + pct * (chartWidth - 120)
+                      return { x, item }
+                    })
                     return (
-                      <text
-                        key={i}
-                        x={x}
-                        y="185"
-                        fontSize="10"
-                        fill="#999"
-                        textAnchor="middle"
-                      >
-                        {dayjs(item.timestamp).format('MM/DD')}
-                      </text>
+                      <>
+                        {points.map((p, i) => (
+                          <text
+                            key={i}
+                            x={p.x}
+                            y="195"
+                            fontSize="10"
+                            fill="#999"
+                            textAnchor="middle"
+                          >
+                            {dayjs(p.item.timestamp).format('MM/DD')}
+                          </text>
+                        ))}
+                      </>
                     )
-                  })}
+                  })()}
                 </svg>
                 {/* 图例数值 */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', padding: '0 45px' }}>
                   {trend.map((item, index) => (
                     <div key={index} style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontSize: 9, color: '#1890ff' }}>{item.avg_utilization.toFixed(0)}%</div>
