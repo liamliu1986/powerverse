@@ -5,6 +5,8 @@ from sqlalchemy.orm import joinedload
 from typing import List, Optional, Dict
 from datetime import datetime, timezone as utc_timezone
 from zoneinfo import ZoneInfo
+
+TZ_NAME = "Asia/Shanghai"
 from ..database import get_db
 from ..models.reservation import Reservation, ReservationStatus
 from ..models.gpu import GPU
@@ -143,8 +145,8 @@ async def create_reservation(
     )
     conflicting = conflict.scalar_one_or_none()
     if conflicting:
-        local_start = conflicting.start_time.replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(tz_name))
-        local_end = conflicting.end_time.replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(tz_name))
+        local_start = conflicting.start_time.replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(TZ_NAME))
+        local_end = conflicting.end_time.replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(TZ_NAME))
         raise HTTPException(
             status_code=409,
             detail=f"该GPU在 {local_start.strftime('%Y-%m-%d %H:%M')} - {local_end.strftime('%H:%M')} 时段已被预约，请选择其他时段"
