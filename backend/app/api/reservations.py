@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
 from typing import List, Optional, Dict
-from datetime import datetime, timezone
+from datetime import datetime, timezone as utc_timezone
+from zoneinfo import ZoneInfo
 from ..database import get_db
 from ..models.reservation import Reservation, ReservationStatus
 from ..models.gpu import GPU
@@ -114,7 +115,7 @@ async def get_reservations_calendar(
 def ensure_tz(dt: datetime) -> datetime:
     """Ensure datetime is timezone-aware (UTC), then strip tzinfo for DB storage/comparison"""
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=utc_timezone.utc)
     return dt.replace(tzinfo=None)
 
 @router.post("", response_model=ReservationResponse, status_code=status.HTTP_201_CREATED)
@@ -142,9 +143,11 @@ async def create_reservation(
     )
     conflicting = conflict.scalar_one_or_none()
     if conflicting:
+        local_start = conflicting.start_time.replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(tz_name))
+        local_end = conflicting.end_time.replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(tz_name))
         raise HTTPException(
             status_code=409,
-            detail=f"该GPU在 {conflicting.start_time.strftime('%Y-%m-%d %H:%M')} - {conflicting.end_time.strftime('%H:%M')} 时段已被预约，请选择其他时段"
+            detail=f"该GPU在 {local_start.strftime('%Y-%m-%d %H:%M')} - {local_end.strftime('%H:%M')} 时段已被预约，请选择其他时段"
         )
 
     reservation = Reservation(
