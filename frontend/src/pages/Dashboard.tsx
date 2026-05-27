@@ -378,7 +378,7 @@ export default function Dashboard() {
                     )
                   })()}
 
-                  {/* X轴标签 */}
+                  {/* X轴标签 - 日期 + 时间 */}
                   {(() => {
                     const points = trend.map((item, i) => {
                       const pct = trend.length <= 1 ? 0 : i / (trend.length - 1)
@@ -391,12 +391,24 @@ export default function Dashboard() {
                           <text
                             key={i}
                             x={p.x}
-                            y="195"
-                            fontSize="10"
-                            fill="#999"
+                            y="190"
+                            fontSize="9"
+                            fill="#666"
                             textAnchor="middle"
                           >
                             {dayjs(p.item.timestamp).format('MM/DD')}
+                          </text>
+                        ))}
+                        {points.map((p, i) => (
+                          <text
+                            key={`time-${i}`}
+                            x={p.x}
+                            y="202"
+                            fontSize="8"
+                            fill="#999"
+                            textAnchor="middle"
+                          >
+                            {dayjs(p.item.timestamp).format('HH:mm')}
                           </text>
                         ))}
                       </>
