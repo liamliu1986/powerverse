@@ -147,7 +147,7 @@ async def get_usage_trend(
             literal_column("date_trunc('hour', gpu_metrics.time)").label('hour'),
             func.avg(GPUMetric.utilization_pct).label('avg_util'),
             func.avg(GPUMetric.memory_used_mb).label('avg_mem'),
-            func.avg(GPUMetric.memory_used_mb) / nullif(func.avg(GPU.memory_total_mb), 0) * 100.label('mem_util')
+            func.avg(GPU.memory_total_mb).label('avg_total_mem')
         )
         .join(GPU, GPUMetric.gpu_id == GPU.id)
         .where(GPUMetric.time >= since)
@@ -155,14 +155,16 @@ async def get_usage_trend(
         .order_by(literal_column('hour'))
     )
 
-    items = [
-        UsageTrendItem(
+    items = []
+    for row in result.all():
+        avg_total_mem = float(row.avg_total_mem or 0)
+        avg_mem = float(row.avg_mem or 0)
+        mem_util = (avg_mem / avg_total_mem * 100) if avg_total_mem > 0 else 0
+        items.append(UsageTrendItem(
             timestamp=row.hour,
             avg_utilization=round(float(row.avg_util or 0), 2),
-            total_memory_used_gb=round(float(row.avg_mem or 0) / 1024, 2),
-            memory_utilization_pct=round(float(row.mem_util or 0), 2)
-        )
-        for row in result.all()
-    ]
+            total_memory_used_gb=round(avg_mem / 1024, 2),
+            memory_utilization_pct=round(mem_util, 2)
+        ))
 
     return UsageTrendResponse(items=items, period_days=days)
