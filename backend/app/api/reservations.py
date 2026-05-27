@@ -3,13 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
 from typing import List, Optional, Dict
-from datetime import datetime, timezone as utc_timezone
+from datetime import datetime, timezone as utc_timezone, timedelta
 from zoneinfo import ZoneInfo
 
 TZ_NAME = "Asia/Shanghai"
+THRESHOLD_UTIL = 70.0
+THRESHOLD_MEM = 70.0
+HISTORY_DAYS = 3
+BUFFER_HOURS = 1
+
 from ..database import get_db
 from ..models.reservation import Reservation, ReservationStatus
 from ..models.gpu import GPU
+from ..models.gpu_metric import GPUMetric
 from ..models.user import User, UserRole
 from ..models.message import Message, MessageType
 from ..models.audit_log import AuditLog
@@ -120,6 +126,76 @@ def ensure_tz(dt: datetime) -> datetime:
         dt = dt.replace(tzinfo=utc_timezone.utc)
     return dt.replace(tzinfo=None)
 
+def get_hour_slots(start_time: datetime, end_time: datetime) -> list[tuple[datetime, datetime]]:
+    """Split a time range into hourly slots (aligned to hour boundaries)"""
+    slots = []
+    current = start_time.replace(minute=0, second=0, microsecond=0)
+    if current < start_time:
+        current += timedelta(hours=1)
+    while current < end_time:
+        slot_end = min(current + timedelta(hours=1), end_time)
+        slots.append((current, slot_end))
+        current += timedelta(hours=1)
+    return slots
+
+async def check_slot_metrics(
+    db: AsyncSession,
+    gpu_id: int,
+    start_time: datetime,
+    end_time: datetime
+) -> list[dict]:
+    """
+    Check GPU metrics for each hour slot within the reservation time range.
+    Returns list of dicts with hour, avg_util, avg_mem, blocked status.
+    """
+    gpu_result = await db.execute(select(GPU).where(GPU.id == gpu_id))
+    gpu = gpu_result.scalar_one_or_none()
+    if not gpu or not gpu.memory_total_mb:
+        return []
+
+    slots = get_hour_slots(start_time, end_time)
+    results = []
+
+    for slot_start, slot_end in slots:
+        blocked_hours = []
+        for day_offset in range(1, HISTORY_DAYS + 1):
+            hist_start = slot_start - timedelta(days=day_offset)
+            hist_end = slot_end - timedelta(days=day_offset)
+
+            metrics_result = await db.execute(
+                select(GPUMetric).where(
+                    GPUMetric.gpu_id == gpu_id,
+                    GPUMetric.time >= hist_start,
+                    GPUMetric.time < hist_end
+                )
+            )
+            metrics = metrics_result.scalars().all()
+
+            if not metrics:
+                continue
+
+            avg_util = sum(m.utilization_pct or 0 for m in metrics) / len(metrics)
+            avg_mem = sum(m.memory_used_mb or 0 for m in metrics) / len(metrics)
+            mem_pct = (avg_mem / gpu.memory_total_mb) * 100 if gpu.memory_total_mb else 0
+
+            if avg_util > THRESHOLD_UTIL or mem_pct > THRESHOLD_MEM:
+                blocked_hours.append({
+                    'day': f'D-{day_offset}',
+                    'avg_util': round(avg_util, 1),
+                    'mem_pct': round(mem_pct, 1),
+                    'blocked': True
+                })
+
+        is_blocked = len(blocked_hours) > 0
+        results.append({
+            'slot_start': slot_start,
+            'slot_end': slot_end,
+            'blocked': is_blocked,
+            'details': blocked_hours
+        })
+
+    return results
+
 @router.post("", response_model=ReservationResponse, status_code=status.HTTP_201_CREATED)
 async def create_reservation(
     reservation_data: ReservationCreate,
@@ -151,6 +227,23 @@ async def create_reservation(
             status_code=409,
             detail=f"该GPU在 {local_start.strftime('%Y-%m-%d %H:%M')} - {local_end.strftime('%Y-%m-%d %H:%M')} 时段已被预约，请选择其他时段"
         )
+
+    slot_results = await check_slot_metrics(db, reservation_data.gpu_id, start_time, end_time)
+    blocked_slots = [r for r in slot_results if r['blocked']]
+    if blocked_slots:
+        error_parts = ["该GPU在以下时段历史负载较高（>70%），不可预约："]
+        for slot in blocked_slots:
+            local_start = slot['slot_start'].replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(TZ_NAME))
+            local_end = slot['slot_end'].replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(TZ_NAME))
+            # Find the most recent blocking reason
+            reason = slot['details'][0] if slot['details'] else {}
+            if reason.get('avg_util', 0) > THRESHOLD_UTIL:
+                reason_str = f"利用率{reason.get('avg_util')}%"
+            else:
+                reason_str = f"显存{reason.get('mem_pct')}%"
+            error_parts.append(f"- {local_start.strftime('%Y-%m-%d %H:%M')}-{local_end.strftime('%H:%M')}（{reason_str}）")
+        error_parts.append("请选择其他时段")
+        raise HTTPException(status_code=409, detail="\n".join(error_parts))
 
     reservation = Reservation(
         gpu_id=reservation_data.gpu_id,
