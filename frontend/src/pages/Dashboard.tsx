@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [gpuHistoryMap, setGpuHistoryMap] = useState<Record<number, GPUMetric[]>>({})
   const [chartWidth, setChartWidth] = useState(window.innerWidth)
   const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; data: UsageTrendItem | null }>({ visible: false, x: 0, y: 0, data: null })
+  const [hoveredGpu, setHoveredGpu] = useState<{ gpuId: number; x: number; y: number; time: string; util: number; mem: string } | null>(null)
 
   useEffect(() => {
     loadAllData()
@@ -235,9 +236,9 @@ export default function Dashboard() {
 
                         {/* 24h utilization trend mini chart */}
                         {gpuHistoryMap[gpu.gpu_id] && gpuHistoryMap[gpu.gpu_id].length > 0 && (
-                          <div style={{ marginTop: 6 }}>
+                          <div style={{ marginTop: 6, position: 'relative' }}>
                             <div style={{ fontSize: 10, color: '#999', marginBottom: 2 }}>24h趋势</div>
-                            <svg width="100%" height="30" style={{ display: 'block' }}>
+                            <svg width="100%" height="40" style={{ display: 'block' }} onMouseLeave={() => setHoveredGpu(null)}>
                               {(() => {
                                 const data = gpuHistoryMap[gpu.gpu_id].slice(-12)
                                 const maxUtil = Math.max(...data.map((x) => x.utilization_pct ?? 0), 1)
@@ -246,21 +247,72 @@ export default function Dashboard() {
                                 const utilPoints = data.map((m, i) => {
                                   const x = i * w + w / 2
                                   const y = 28 - ((m.utilization_pct ?? 0) / maxUtil) * 26
-                                  return `${x},${y}`
-                                }).join(' ')
+                                  return { x, y, m, i }
+                                })
                                 const memPoints = data.map((m, i) => {
                                   const x = i * w + w / 2
                                   const y = 28 - (((m.memory_used_mb ?? 0) / 1024) / maxMem) * 26
-                                  return `${x},${y}`
-                                }).join(' ')
+                                  return { x, y, m, i }
+                                })
+                                const utilPoly = utilPoints.map(p => `${p.x},${p.y}`).join(' ')
+                                const memPoly = memPoints.map(p => `${p.x},${p.y}`).join(' ')
                                 return (
                                   <>
-                                    <polyline points={utilPoints} fill="none" stroke="#1890ff" strokeWidth="1.5" strokeLinejoin="round" />
-                                    <polyline points={memPoints} fill="none" stroke="#fa8c16" strokeWidth="1.5" strokeDasharray="2,1" strokeLinejoin="round" />
+                                    {/* Time labels */}
+                                    <text x="2" y="38" fontSize="8" fill="#999">00:00</text>
+                                    <text x="45" y="38" fontSize="8" fill="#999">06:00</text>
+                                    <text x="88" y="38" fontSize="8" fill="#999">12:00</text>
+                                    {/* Lines */}
+                                    <polyline points={utilPoly} fill="none" stroke="#1890ff" strokeWidth="1.5" strokeLinejoin="round" />
+                                    <polyline points={memPoly} fill="none" stroke="#fa8c16" strokeWidth="1.5" strokeDasharray="2,1" strokeLinejoin="round" />
+                                    {/* Hover areas */}
+                                    {utilPoints.map(p => (
+                                      <rect
+                                        key={p.i}
+                                        x={p.x - w / 2}
+                                        y={0}
+                                        width={w}
+                                        height={35}
+                                        fill="transparent"
+                                        onMouseEnter={(e) => {
+                                          const rect = (e.target as SVGElement).closest('svg')?.getBoundingClientRect()
+                                          if (rect) {
+                                            setHoveredGpu({
+                                              gpuId: gpu.gpu_id,
+                                              x: e.clientX - rect.left,
+                                              y: e.clientY - rect.top - 50,
+                                              time: p.m.time,
+                                              util: p.m.utilization_pct ?? 0,
+                                              mem: ((p.m.memory_used_mb ?? 0) / 1024).toFixed(1)
+                                            })
+                                          }
+                                        }}
+                                      />
+                                    ))}
                                   </>
                                 )
                               })()}
                             </svg>
+                            {hoveredGpu && hoveredGpu.gpuId === gpu.gpu_id && (
+                              <div style={{
+                                position: 'absolute',
+                                left: hoveredGpu.x,
+                                top: hoveredGpu.y,
+                                transform: 'translateX(-50%)',
+                                backgroundColor: 'rgba(0,0,0,0.85)',
+                                color: '#fff',
+                                padding: '4px 8px',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                pointerEvents: 'none',
+                                zIndex: 100,
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <div>{dayjs(hoveredGpu.time).format('HH:mm')}</div>
+                                <div style={{ color: '#1890ff' }}>利用率: {hoveredGpu.util}%</div>
+                                <div style={{ color: '#fa8c16' }}>显存: {hoveredGpu.mem}GB</div>
+                              </div>
+                            )}
                           </div>
                         )}
 

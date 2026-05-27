@@ -52,7 +52,7 @@ services:
       retries: 3
 
   web:
-    image: lzcy5151/powerverse-web:v1.20260527.10
+    image: lzcy5151/powerverse-web:v1.20260527.11
     container_name: powerverse-web
     ports:
       - "8080:80"
