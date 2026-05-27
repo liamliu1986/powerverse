@@ -36,7 +36,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       PROMETHEUS_TARGETS_FILE: /etc/prometheus/targets/dcgm-targets.json
-      PROMETHEUS_HOST: localhost
+      PROMETHEUS_HOST: host.docker.internal
       PROMETHEUS_PORT: 9090
     volumes:
       - ./targets:/etc/prometheus/targets
