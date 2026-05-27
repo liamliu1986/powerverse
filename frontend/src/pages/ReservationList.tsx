@@ -133,8 +133,9 @@ export default function ReservationList() {
       setIsModalOpen(false)
       form.resetFields()
       fetchReservations()
-    } catch {
-      message.error('创建预约失败')
+    } catch (err: any) {
+      const detail = err.response?.data?.detail
+      message.error(detail || '创建预约失败')
     }
   }
 
