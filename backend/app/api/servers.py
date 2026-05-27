@@ -10,7 +10,7 @@ from ..models.gpu_metric import GPUMetric
 from ..models.reservation import Reservation
 from ..schemas.server import ServerCreate, ServerUpdate, ServerResponse
 from ..schemas.gpu import GPUResponse
-from ..core.dependencies import get_current_user
+from ..core.dependencies import get_current_user, get_current_operator
 from ..services import prometheus_config
 
 router = APIRouter(prefix="/api/v1/servers", tags=["Servers"])
@@ -38,7 +38,7 @@ async def list_servers(
 async def create_server(
     server_data: ServerCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_operator)
 ):
     server = Server(**server_data.model_dump())
     db.add(server)
@@ -67,7 +67,7 @@ async def update_server(
     server_id: int,
     server_data: ServerUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_operator)
 ):
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()
@@ -85,7 +85,7 @@ async def update_server(
 async def delete_server(
     server_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_operator)
 ):
     result = await db.execute(select(Server).where(Server.id == server_id))
     server = result.scalar_one_or_none()

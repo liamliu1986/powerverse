@@ -11,7 +11,7 @@ from ..models.server import Server
 from ..models.reservation import Reservation, ReservationStatus
 from ..schemas.gpu import GPUResponse, GPUMetricResponse, GPUMetricsHistoryResponse, GPUCreate, GPUUpdate, AvailableSlotsResponse, AvailableSlot
 from ..schemas.server import ServerResponse
-from ..core.dependencies import get_current_user
+from ..core.dependencies import get_current_user, get_current_operator
 
 router = APIRouter(prefix="/api/v1/gpus", tags=["GPUs"])
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1/gpus", tags=["GPUs"])
 async def create_gpu(
     gpu_data: GPUCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_operator)
 ):
     gpu = GPU(**gpu_data.model_dump())
     db.add(gpu)
@@ -147,7 +147,7 @@ async def update_gpu(
     gpu_id: int,
     gpu_data: GPUUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_operator)
 ):
     result = await db.execute(select(GPU).options(joinedload(GPU.server)).where(GPU.id == gpu_id))
     gpu = result.scalar_one_or_none()

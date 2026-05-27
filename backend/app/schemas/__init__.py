@@ -4,3 +4,4 @@ from .gpu import GPUCreate, GPUResponse, GPUMetricResponse, GPUMetricsHistoryRes
 from .reservation import ReservationCreate, ReservationUpdate, ReservationResponse, ReservationApproval
 from .message import MessageCreate, MessageResponse, UnreadCountResponse
 from .dashboard import DashboardOverview, UtilizationStats, ScheduleResponse, UsageTrendResponse
+from .audit_log import AuditLogResponse

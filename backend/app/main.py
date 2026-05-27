@@ -16,6 +16,8 @@ from .api.messages import router as messages_router
 from .services.prometheus_fetcher import metrics_sync_loop
 from .services.prometheus_config import sync_targets_from_db
 from .api.gpu_discovery import router as gpu_discovery_router
+from .api.users import router as users_router
+from .api.audit_logs import router as audit_logs_router
 
 settings = get_settings()
 
@@ -74,6 +76,8 @@ app.include_router(reservations_router)
 app.include_router(dashboard_router)
 app.include_router(messages_router)
 app.include_router(gpu_discovery_router)
+app.include_router(users_router)
+app.include_router(audit_logs_router)
 
 @app.get("/")
 async def root():

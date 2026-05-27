@@ -229,10 +229,11 @@ async def approve_reservation(
     db.add(message)
 
     audit = AuditLog(
-        reservation_id=reservation.id,
+        entity_type="reservation",
+        entity_id=reservation.id,
         action="approve",
-        old_status=ReservationStatus.PENDING.value,
-        new_status=ReservationStatus.APPROVED.value,
+        old_value=ReservationStatus.PENDING.value,
+        new_value=ReservationStatus.APPROVED.value,
         operator_id=current_user.id
     )
     db.add(audit)
@@ -267,10 +268,11 @@ async def reject_reservation(
     db.add(message)
 
     audit = AuditLog(
-        reservation_id=reservation.id,
+        entity_type="reservation",
+        entity_id=reservation.id,
         action="reject",
-        old_status=ReservationStatus.PENDING.value,
-        new_status=ReservationStatus.REJECTED.value,
+        old_value=ReservationStatus.PENDING.value,
+        new_value=ReservationStatus.REJECTED.value,
         operator_id=current_user.id
     )
     db.add(audit)
@@ -299,10 +301,11 @@ async def cancel_reservation(
     reservation.status = ReservationStatus.CANCELLED
 
     audit = AuditLog(
-        reservation_id=reservation.id,
+        entity_type="reservation",
+        entity_id=reservation.id,
         action="cancel",
-        old_status=reservation.status.value if hasattr(reservation.status, 'value') else reservation.status,
-        new_status=ReservationStatus.CANCELLED.value,
+        old_value=reservation.status.value if hasattr(reservation.status, 'value') else reservation.status,
+        new_value=ReservationStatus.CANCELLED.value,
         operator_id=current_user.id
     )
     db.add(audit)
@@ -341,7 +344,10 @@ async def delete_reservation(
         raise HTTPException(status_code=400, detail="Can only delete cancelled reservations")
 
     audit_result = await db.execute(
-        select(AuditLog).where(AuditLog.reservation_id == reservation_id)
+        select(AuditLog).where(
+            AuditLog.entity_type == "reservation",
+            AuditLog.entity_id == reservation_id
+        )
     )
     audit_logs = audit_result.scalars().all()
     for audit in audit_logs:
