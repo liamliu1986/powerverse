@@ -209,13 +209,13 @@ export default function ReservationList() {
       title: '开始时间',
       dataIndex: 'start_time',
       key: 'start_time',
-      render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm'),
+      render: (v: string) => dayjs.utc(v).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm'),
     },
     {
       title: '结束时间',
       dataIndex: 'end_time',
       key: 'end_time',
-      render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm'),
+      render: (v: string) => dayjs.utc(v).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm'),
     },
     { title: '用途', dataIndex: 'purpose', key: 'purpose', ellipsis: true },
     {

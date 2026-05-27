@@ -105,10 +105,10 @@ export default function ReservationCalendarPage() {
               <Tag color={statusColors[selected.status]}>{statusText[selected.status]}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="开始时间">
-              {dayjs(selected.start_time).format('YYYY-MM-DD HH:mm')}
+              {dayjs.utc(selected.start_time).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm')}
             </Descriptions.Item>
             <Descriptions.Item label="结束时间">
-              {dayjs(selected.end_time).format('YYYY-MM-DD HH:mm')}
+              {dayjs.utc(selected.end_time).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm')}
             </Descriptions.Item>
           </Descriptions>
         )}
