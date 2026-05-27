@@ -1,8 +1,1 @@
-[
-  {
-    "targets": ["${GPU_SERVER_IP}:9400"],
-    "labels": {
-      "server": "${SERVER_NAME:-gpu-server-1}"
-    }
-  }
-]
+[]
