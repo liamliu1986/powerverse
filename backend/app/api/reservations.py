@@ -140,8 +140,12 @@ async def create_reservation(
             )
         )
     )
-    if conflict.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Time slot already reserved")
+    conflicting = conflict.scalar_one_or_none()
+    if conflicting:
+        raise HTTPException(
+            status_code=409,
+            detail=f"该GPU在 {conflicting.start_time.strftime('%Y-%m-%d %H:%M')} - {conflicting.end_time.strftime('%H:%M')} 时段已被预约，请选择其他时段"
+        )
 
     reservation = Reservation(
         gpu_id=reservation_data.gpu_id,

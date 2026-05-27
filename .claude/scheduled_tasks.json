@@ -5,7 +5,7 @@
       "cron": "*/15 * * * *",
       "prompt": "/auto-fix-issues",
       "createdAt": 1779675387912,
-      "lastFiredAt": 1779865128105,
+      "lastFiredAt": 1779865394007,
       "recurring": true,
       "createdBySessionId": "a15dcf02-88ff-4781-a04b-c242e958ca02",
       "createdByPid": 12968
