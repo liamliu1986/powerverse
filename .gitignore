@@ -43,6 +43,9 @@ logs/
 # K8s secrets (should not be committed)
 k8s/secrets.yaml
 
+# Prometheus targets (runtime file, managed by API)
+targets/dcgm-targets.json
+
 # Local overrides
 *.local.yml
 .claude/settings.local.json

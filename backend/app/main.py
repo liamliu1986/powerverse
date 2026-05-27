@@ -14,6 +14,7 @@ from .api.reservations import router as reservations_router
 from .api.dashboard import router as dashboard_router
 from .api.messages import router as messages_router
 from .services.prometheus_fetcher import metrics_sync_loop
+from .services.prometheus_config import sync_targets_from_db
 from .api.gpu_discovery import router as gpu_discovery_router
 
 settings = get_settings()
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await init_db()
+    await sync_targets_from_db()
     task = asyncio.create_task(metrics_sync_loop(30))
     yield
     task.cancel()
