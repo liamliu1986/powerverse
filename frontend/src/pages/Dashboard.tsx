@@ -293,11 +293,11 @@ export default function Dashboard() {
             extra={
               <Space>
                 <span style={{ fontSize: 12 }}>
-                  <span style={{ display: 'inline-block', width: 12, height: 3, backgroundColor: '#1890ff', borderRadius: 2, marginRight: 4 }}></span>
+                  <span style={{ display: 'inline-block', width: 16, height: 3, backgroundColor: '#1890ff', borderRadius: 2, marginRight: 4 }}></span>
                   利用率
                 </span>
                 <span style={{ fontSize: 12, marginLeft: 12 }}>
-                  <span style={{ display: 'inline-block', width: 12, height: 3, backgroundColor: '#fa8c16', borderRadius: 2, marginRight: 4 }}></span>
+                  <span style={{ display: 'inline-block', width: 16, height: 3, backgroundColor: '#fa8c16', borderRadius: 2, marginRight: 4 }}></span>
                   显存使用率
                 </span>
               </Space>
@@ -306,67 +306,119 @@ export default function Dashboard() {
             {trend.length === 0 ? (
               <Empty description="暂无趋势数据" />
             ) : (
-              <div style={{ position: 'relative', height: 160, padding: '0 40 0 50' }}>
-                {/* Y轴标签 - 左侧利用率 */}
-                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 30, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 10, color: '#999' }}>
-                  <span>100%</span>
-                  <span>50%</span>
-                  <span>0%</span>
-                </div>
-                {/* Y轴标签 - 右侧显存使用率 */}
-                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 30, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 10, color: '#999' }}>
-                  <span>100%</span>
-                  <span>50%</span>
-                  <span>0%</span>
-                </div>
-                {/* 图表区域 */}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 130, paddingTop: 10 }}>
-                  {trend.map((item, index) => {
+              <div style={{ position: 'relative', height: 200, padding: '10 50 30 50' }}>
+                <svg width="100%" height="180" viewBox="0 0 700 180" style={{ overflow: 'visible' }}>
+                  {/* 左Y轴标签 */}
+                  <text x="5" y="15" fontSize="10" fill="#999">100%</text>
+                  <text x="5" y="90" fontSize="10" fill="#999">50%</text>
+                  <text x="5" y="165" fontSize="10" fill="#999">0%</text>
+
+                  {/* 右Y轴标签 */}
+                  <text x="695" y="15" fontSize="10" fill="#999" textAnchor="end">100%</text>
+                  <text x="695" y="90" fontSize="10" fill="#999" textAnchor="end">50%</text>
+                  <text x="695" y="165" fontSize="10" fill="#999" textAnchor="end">0%</text>
+
+                  {/* 网格线 */}
+                  <line x1="50" y1="10" x2="690" y2="10" stroke="#eee" strokeWidth="1" />
+                  <line x1="50" y1="90" x2="690" y2="90" stroke="#eee" strokeWidth="1" />
+                  <line x1="50" y1="170" x2="690" y2="170" stroke="#eee" strokeWidth="1" />
+
+                  {/* 计算曲线点 - 利用率(蓝色) */}
+                  {(() => {
                     const maxUtil = Math.max(...trend.map((t) => t.avg_utilization), 1)
-                    const maxMemUtil = Math.max(...trend.map((t) => t.memory_utilization_pct), 1)
-                    const utilHeight = (item.avg_utilization / maxUtil) * 100
-                    const memUtilHeight = (item.memory_utilization_pct / maxMemUtil) * 100
+                    const points = trend.map((item, i) => {
+                      const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                      const y = 170 - (item.avg_utilization / maxUtil) * 160
+                      return `${x},${y}`
+                    })
                     return (
-                      <div key={index} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-                        <div style={{ height: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 4 }}>
-                          {/* 利用率柱 */}
-                          <div
-                            style={{
-                              width: '45%',
-                              height: `${utilHeight}%`,
-                              backgroundColor: '#1890ff',
-                              borderRadius: '3px 3px 0 0',
-                              minHeight: 2,
-                              transition: 'height 0.3s',
-                            }}
-                            title={`利用率: ${item.avg_utilization.toFixed(1)}%`}
-                          />
-                          {/* 显存使用率柱 */}
-                          <div
-                            style={{
-                              width: '45%',
-                              height: `${memUtilHeight}%`,
-                              backgroundColor: '#fa8c16',
-                              borderRadius: '3px 3px 0 0',
-                              minHeight: 2,
-                              transition: 'height 0.3s',
-                            }}
-                            title={`显存使用率: ${item.memory_utilization_pct.toFixed(1)}%`}
-                          />
-                        </div>
-                        <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>
-                          {dayjs(item.timestamp).format('MM/DD')}
-                        </div>
-                      </div>
+                      <>
+                        <polyline
+                          points={points.join(' ')}
+                          fill="none"
+                          stroke="#1890ff"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                        />
+                        {/* 数据点 */}
+                        {trend.map((item, i) => {
+                          const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                          const y = 170 - (item.avg_utilization / maxUtil) * 160
+                          return (
+                            <circle
+                              key={i}
+                              cx={x}
+                              cy={y}
+                              r="3"
+                              fill="#1890ff"
+                            />
+                          )
+                        })}
+                      </>
+                    )
+                  })()}
+
+                  {/* 计算曲线点 - 显存使用率(橙色) */}
+                  {(() => {
+                    const maxMemUtil = Math.max(...trend.map((t) => t.memory_utilization_pct), 1)
+                    const points = trend.map((item, i) => {
+                      const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                      const y = 170 - (item.memory_utilization_pct / maxMemUtil) * 160
+                      return `${x},${y}`
+                    })
+                    return (
+                      <>
+                        <polyline
+                          points={points.join(' ')}
+                          fill="none"
+                          stroke="#fa8c16"
+                          strokeWidth="2"
+                          strokeDasharray="5,3"
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                        />
+                        {/* 数据点 */}
+                        {trend.map((item, i) => {
+                          const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                          const y = 170 - (item.memory_utilization_pct / maxMemUtil) * 160
+                          return (
+                            <circle
+                              key={i}
+                              cx={x}
+                              cy={y}
+                              r="3"
+                              fill="#fa8c16"
+                            />
+                          )
+                        })}
+                      </>
+                    )
+                  })()}
+
+                  {/* X轴标签 */}
+                  {trend.map((item, i) => {
+                    const x = 50 + (i / Math.max(trend.length - 1, 1)) * 640
+                    return (
+                      <text
+                        key={i}
+                        x={x}
+                        y="185"
+                        fontSize="10"
+                        fill="#999"
+                        textAnchor="middle"
+                      >
+                        {dayjs(item.timestamp).format('MM/DD')}
+                      </text>
                     )
                   })}
-                </div>
-                {/* X轴和数值 */}
+                </svg>
+                {/* 图例数值 */}
                 <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 4 }}>
                   {trend.map((item, index) => (
                     <div key={index} style={{ textAlign: 'center', flex: 1 }}>
-                      <div style={{ fontSize: 10, color: '#1890ff' }}>{item.avg_utilization.toFixed(0)}%</div>
-                      <div style={{ fontSize: 10, color: '#fa8c16' }}>{item.memory_utilization_pct.toFixed(0)}%</div>
+                      <div style={{ fontSize: 9, color: '#1890ff' }}>{item.avg_utilization.toFixed(0)}%</div>
+                      <div style={{ fontSize: 9, color: '#fa8c16' }}>{item.memory_utilization_pct.toFixed(0)}%</div>
                     </div>
                   ))}
                 </div>
