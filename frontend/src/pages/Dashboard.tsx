@@ -237,23 +237,30 @@ export default function Dashboard() {
                         {gpuHistoryMap[gpu.gpu_id] && gpuHistoryMap[gpu.gpu_id].length > 0 && (
                           <div style={{ marginTop: 6 }}>
                             <div style={{ fontSize: 10, color: '#999', marginBottom: 2 }}>24h趋势</div>
-                            <div style={{ display: 'flex', gap: 1, alignItems: 'flex-end', height: 24 }}>
-                              {gpuHistoryMap[gpu.gpu_id].slice(-12).map((m, i) => {
-                                const max = Math.max(...gpuHistoryMap[gpu.gpu_id].map((x) => x.utilization_pct ?? 0), 1)
+                            <svg width="100%" height="30" style={{ display: 'block' }}>
+                              {(() => {
+                                const data = gpuHistoryMap[gpu.gpu_id].slice(-12)
+                                const maxUtil = Math.max(...data.map((x) => x.utilization_pct ?? 0), 1)
+                                const maxMem = Math.max(...data.map((x) => (x.memory_used_mb ?? 0) / 1024), 1)
+                                const w = 100 / data.length
+                                const utilPoints = data.map((m, i) => {
+                                  const x = i * w + w / 2
+                                  const y = 28 - ((m.utilization_pct ?? 0) / maxUtil) * 26
+                                  return `${x},${y}`
+                                }).join(' ')
+                                const memPoints = data.map((m, i) => {
+                                  const x = i * w + w / 2
+                                  const y = 28 - (((m.memory_used_mb ?? 0) / 1024) / maxMem) * 26
+                                  return `${x},${y}`
+                                }).join(' ')
                                 return (
-                                  <div
-                                    key={i}
-                                    style={{
-                                      flex: 1,
-                                      height: `${((m.utilization_pct ?? 0) / max) * 100}%`,
-                                      backgroundColor: '#1890ff',
-                                      borderRadius: '1px 1px 0 0',
-                                      minHeight: 2,
-                                    }}
-                                  />
+                                  <>
+                                    <polyline points={utilPoints} fill="none" stroke="#1890ff" strokeWidth="1.5" strokeLinejoin="round" />
+                                    <polyline points={memPoints} fill="none" stroke="#fa8c16" strokeWidth="1.5" strokeDasharray="2,1" strokeLinejoin="round" />
+                                  </>
                                 )
-                              })}
-                            </div>
+                              })()}
+                            </svg>
                           </div>
                         )}
 
