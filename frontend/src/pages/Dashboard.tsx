@@ -308,7 +308,7 @@ export default function Dashboard() {
                                 zIndex: 100,
                                 whiteSpace: 'nowrap'
                               }}>
-                                <div>{dayjs(hoveredGpu.time).format('HH:mm')}</div>
+                                <div>{dayjs.utc(hoveredGpu.time).tz('Asia/Shanghai').format('HH:mm')}</div>
                                 <div style={{ color: '#1890ff' }}>利用率: {hoveredGpu.util}%</div>
                                 <div style={{ color: '#fa8c16' }}>显存: {hoveredGpu.mem}GB</div>
                               </div>
@@ -353,7 +353,7 @@ export default function Dashboard() {
                           <strong>{item.gpu_name}</strong> @ {item.server_hostname}
                           <br />
                           <span style={{ fontSize: 12, color: '#999' }}>
-                            {dayjs(item.start_time).format('HH:mm')} - {dayjs(item.end_time).format('HH:mm')}
+                            {dayjs.utc(item.start_time).tz('Asia/Shanghai').format('HH:mm')} - {dayjs.utc(item.end_time).tz('Asia/Shanghai').format('HH:mm')}
                           </span>
                           <br />
                           <span style={{ fontSize: 12 }}>{item.username || '未分配'}</span>
@@ -408,7 +408,7 @@ export default function Dashboard() {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    <div style={{ marginBottom: 4 }}>{dayjs(tooltip.data?.timestamp).format('YYYY-MM-DD HH:mm')}</div>
+                    <div style={{ marginBottom: 4 }}>{dayjs.utc(tooltip.data?.timestamp).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm')}</div>
                     <div style={{ color: '#1890ff' }}>利用率: {tooltip.data?.avg_utilization.toFixed(1)}%</div>
                     <div style={{ color: '#fa8c16' }}>显存使用率: {tooltip.data?.memory_utilization_pct.toFixed(1)}%</div>
                   </div>
@@ -517,7 +517,7 @@ export default function Dashboard() {
                               textAnchor="middle"
                               transform={`rotate(-30 ${p.x} 192)`}
                             >
-                              {dayjs(p.item.timestamp).format('MM/DD HH:mm')}
+                              {dayjs.utc(p.item.timestamp).tz('Asia/Shanghai').format('MM/DD HH:mm')}
                             </text>
                           </g>
                         ))}
