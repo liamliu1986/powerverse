@@ -355,23 +355,22 @@ export default function Dashboard() {
                   </div>
                 )}
                 <svg width="100%" height="220" style={{ display: 'block' }} preserveAspectRatio="none">
-                  {/* 左Y轴标签 */}
-                  <text x="30" y="15" fontSize="10" fill="#999">100%</text>
-                  <text x="30" y="95" fontSize="10" fill="#999">50%</text>
-                  <text x="30" y="175" fontSize="10" fill="#999">0%</text>
+                  {/* 左Y轴标签 - 基于100%坐标系 */}
+                  <text x="30" y="12" fontSize="10" fill="#999">100%</text>
+                  <text x="30" y="91" fontSize="10" fill="#999">50%</text>
+                  <text x="30" y="170" fontSize="10" fill="#999">0%</text>
 
                   {/* 网格线 */}
                   <line x1="45" y1="10" x2="100%" y2="10" stroke="#eee" strokeWidth="1" />
                   <line x1="45" y1="90" x2="100%" y2="90" stroke="#eee" strokeWidth="1" />
                   <line x1="45" y1="170" x2="100%" y2="170" stroke="#eee" strokeWidth="1" />
 
-                  {/* 计算曲线点 - 利用率(蓝色) */}
+                  {/* 计算曲线点 - 利用率(蓝色) - 标准化到100% */}
                   {(() => {
-                    const maxUtil = Math.max(...trend.map((t) => t.avg_utilization), 1)
                     const points = trend.map((item, i) => {
                       const pct = trend.length <= 1 ? 0 : i / (trend.length - 1)
                       const x = 45 + pct * (chartWidth - 120)
-                      const y = 170 - (item.avg_utilization / maxUtil) * 160
+                      const y = 170 - (item.avg_utilization / 100) * 160
                       return { x, y, item }
                     })
                     return (
@@ -402,13 +401,12 @@ export default function Dashboard() {
                     )
                   })()}
 
-                  {/* 计算曲线点 - 显存使用率(橙色) */}
+                  {/* 计算曲线点 - 显存使用率(橙色) - 标准化到100% */}
                   {(() => {
-                    const maxMemUtil = Math.max(...trend.map((t) => t.memory_utilization_pct), 1)
                     const points = trend.map((item, i) => {
                       const pct = trend.length <= 1 ? 0 : i / (trend.length - 1)
                       const x = 45 + pct * (chartWidth - 120)
-                      const y = 170 - (item.memory_utilization_pct / maxMemUtil) * 160
+                      const y = 170 - (item.memory_utilization_pct / 100) * 160
                       return { x, y, item }
                     })
                     return (
