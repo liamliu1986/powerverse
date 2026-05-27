@@ -415,15 +415,6 @@ export default function Dashboard() {
                     )
                   })()}
                 </svg>
-                {/* 图例数值 */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', padding: '0 45px' }}>
-                  {trend.map((item, index) => (
-                    <div key={index} style={{ textAlign: 'center', flex: 1 }}>
-                      <div style={{ fontSize: 9, color: '#1890ff' }}>{item.avg_utilization.toFixed(0)}%</div>
-                      <div style={{ fontSize: 9, color: '#fa8c16' }}>{item.memory_utilization_pct.toFixed(0)}%</div>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </Card>
