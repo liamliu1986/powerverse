@@ -12,7 +12,7 @@ from ..models.gpu_metric import GPUMetric
 logger = logging.getLogger(__name__)
 
 # Configure via PROMETHEUS_URL environment variable in production
-_PROMETHEUS_HOST = os.environ.get("PROMETHEUS_HOST", "localhost")
+_PROMETHEUS_HOST = os.environ.get("PROMETHEUS_HOST", "host.docker.internal")
 _PROMETHEUS_PORT = os.environ.get("PROMETHEUS_PORT", "9090")
 PROMETHEUS_URL = f"http://{_PROMETHEUS_HOST}:{_PROMETHEUS_PORT}"
 
