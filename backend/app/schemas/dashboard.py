@@ -44,6 +44,7 @@ class UsageTrendItem(BaseModel):
     timestamp: datetime
     avg_utilization: float
     total_memory_used_gb: float
+    memory_utilization_pct: float
 
 class UsageTrendResponse(BaseModel):
     items: List[UsageTrendItem]

@@ -288,30 +288,88 @@ export default function Dashboard() {
       {/* 使用趋势 */}
       <Row gutter={16} style={{ marginTop: 24 }}>
         <Col span={24}>
-          <Card title="7天使用趋势">
+          <Card
+            title="7天使用趋势"
+            extra={
+              <Space>
+                <span style={{ fontSize: 12 }}>
+                  <span style={{ display: 'inline-block', width: 12, height: 3, backgroundColor: '#1890ff', borderRadius: 2, marginRight: 4 }}></span>
+                  利用率
+                </span>
+                <span style={{ fontSize: 12, marginLeft: 12 }}>
+                  <span style={{ display: 'inline-block', width: 12, height: 3, backgroundColor: '#fa8c16', borderRadius: 2, marginRight: 4 }}></span>
+                  显存使用率
+                </span>
+              </Space>
+            }
+          >
             {trend.length === 0 ? (
               <Empty description="暂无趋势数据" />
             ) : (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 120 }}>
-                {trend.map((item, index) => (
-                  <div key={index} style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, color: '#999' }}>
-                      {dayjs(item.timestamp).format('MM/DD')}
+              <div style={{ position: 'relative', height: 160, padding: '0 40 0 50' }}>
+                {/* Y轴标签 - 左侧利用率 */}
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 30, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 10, color: '#999' }}>
+                  <span>100%</span>
+                  <span>50%</span>
+                  <span>0%</span>
+                </div>
+                {/* Y轴标签 - 右侧显存使用率 */}
+                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 30, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 10, color: '#999' }}>
+                  <span>100%</span>
+                  <span>50%</span>
+                  <span>0%</span>
+                </div>
+                {/* 图表区域 */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 130, paddingTop: 10 }}>
+                  {trend.map((item, index) => {
+                    const maxUtil = Math.max(...trend.map((t) => t.avg_utilization), 1)
+                    const maxMemUtil = Math.max(...trend.map((t) => t.memory_utilization_pct), 1)
+                    const utilHeight = (item.avg_utilization / maxUtil) * 100
+                    const memUtilHeight = (item.memory_utilization_pct / maxMemUtil) * 100
+                    return (
+                      <div key={index} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
+                        <div style={{ height: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 4 }}>
+                          {/* 利用率柱 */}
+                          <div
+                            style={{
+                              width: '45%',
+                              height: `${utilHeight}%`,
+                              backgroundColor: '#1890ff',
+                              borderRadius: '3px 3px 0 0',
+                              minHeight: 2,
+                              transition: 'height 0.3s',
+                            }}
+                            title={`利用率: ${item.avg_utilization.toFixed(1)}%`}
+                          />
+                          {/* 显存使用率柱 */}
+                          <div
+                            style={{
+                              width: '45%',
+                              height: `${memUtilHeight}%`,
+                              backgroundColor: '#fa8c16',
+                              borderRadius: '3px 3px 0 0',
+                              minHeight: 2,
+                              transition: 'height 0.3s',
+                            }}
+                            title={`显存使用率: ${item.memory_utilization_pct.toFixed(1)}%`}
+                          />
+                        </div>
+                        <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>
+                          {dayjs(item.timestamp).format('MM/DD')}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* X轴和数值 */}
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 4 }}>
+                  {trend.map((item, index) => (
+                    <div key={index} style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontSize: 10, color: '#1890ff' }}>{item.avg_utilization.toFixed(0)}%</div>
+                      <div style={{ fontSize: 10, color: '#fa8c16' }}>{item.memory_utilization_pct.toFixed(0)}%</div>
                     </div>
-                    <div style={{ height: 80, display: 'flex', alignItems: 'flex-end' }}>
-                      <div
-                        style={{
-                          width: '100%',
-                          height: `${item.avg_utilization}%`,
-                          backgroundColor: '#1890ff',
-                          borderRadius: '4px 4px 0 0',
-                          minHeight: 4,
-                        }}
-                      />
-                    </div>
-                    <div style={{ fontSize: 12, marginTop: 4 }}>{item.avg_utilization.toFixed(0)}%</div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </Card>

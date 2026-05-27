@@ -47,6 +47,7 @@ export interface UsageTrendItem {
   timestamp: string
   avg_utilization: number
   total_memory_used_gb: number
+  memory_utilization_pct: number
 }
 
 export interface UsageTrendResponse {
