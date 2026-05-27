@@ -24,7 +24,7 @@ services:
       retries: 5
 
   api:
-    image: lzcy5151/powerverse:v1.20260527.2
+    image: lzcy5151/powerverse:v1.20260527.3
     container_name: powerverse-api
     ports:
       - "8001:8000"
@@ -36,6 +36,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       PROMETHEUS_TARGETS_FILE: /etc/prometheus/targets/dcgm-targets.json
+      PROMETHEUS_HOST: localhost
+      PROMETHEUS_PORT: 9090
     volumes:
       - ./targets:/etc/prometheus/targets
     depends_on:
