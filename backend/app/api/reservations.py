@@ -149,7 +149,7 @@ async def create_reservation(
         local_end = conflicting.end_time.replace(tzinfo=utc_timezone.utc).astimezone(ZoneInfo(TZ_NAME))
         raise HTTPException(
             status_code=409,
-            detail=f"该GPU在 {local_start.strftime('%Y-%m-%d %H:%M')} - {local_end.strftime('%H:%M')} 时段已被预约，请选择其他时段"
+            detail=f"该GPU在 {local_start.strftime('%Y-%m-%d %H:%M')} - {local_end.strftime('%Y-%m-%d %H:%M')} 时段已被预约，请选择其他时段"
         )
 
     reservation = Reservation(
