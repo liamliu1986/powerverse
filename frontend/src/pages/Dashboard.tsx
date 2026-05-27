@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [trend, setTrend] = useState<UsageTrendItem[]>([])
   const [gpuHistoryMap, setGpuHistoryMap] = useState<Record<number, GPUMetric[]>>({})
   const [chartWidth, setChartWidth] = useState(window.innerWidth)
+  const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; data: UsageTrendItem | null }>({ visible: false, x: 0, y: 0, data: null })
 
   useEffect(() => {
     loadAllData()
@@ -68,6 +69,22 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to load schedule:', error)
     }
+  }
+
+  const handleMouseEnter = (e: React.MouseEvent, item: UsageTrendItem) => {
+    const rect = (e.target as SVGElement).closest('svg')?.getBoundingClientRect()
+    if (rect) {
+      setTooltip({
+        visible: true,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+        data: item,
+      })
+    }
+  }
+
+  const handleMouseLeave = () => {
+    setTooltip({ visible: false, x: 0, y: 0, data: null })
   }
 
   if (loading || !overview) {
@@ -313,8 +330,31 @@ export default function Dashboard() {
             {trend.length === 0 ? (
               <Empty description="暂无趋势数据" />
             ) : (
-              <div style={{ height: 220, position: 'relative' }}>
-                <svg width="100%" height="200" style={{ display: 'block' }} preserveAspectRatio="none">
+              <div style={{ height: 240, position: 'relative' }}>
+                {/* Tooltip */}
+                {tooltip.visible && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: tooltip.x,
+                      top: tooltip.y - 60,
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'rgba(0,0,0,0.85)',
+                      color: '#fff',
+                      padding: '8px 12px',
+                      borderRadius: 4,
+                      fontSize: 12,
+                      pointerEvents: 'none',
+                      zIndex: 100,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <div style={{ marginBottom: 4 }}>{dayjs(tooltip.data?.timestamp).format('YYYY-MM-DD HH:mm')}</div>
+                    <div style={{ color: '#1890ff' }}>利用率: {tooltip.data?.avg_utilization.toFixed(1)}%</div>
+                    <div style={{ color: '#fa8c16' }}>显存使用率: {tooltip.data?.memory_utilization_pct.toFixed(1)}%</div>
+                  </div>
+                )}
+                <svg width="100%" height="220" style={{ display: 'block' }} preserveAspectRatio="none">
                   {/* 左Y轴标签 */}
                   <text x="30" y="15" fontSize="10" fill="#999">100%</text>
                   <text x="30" y="95" fontSize="10" fill="#999">50%</text>
@@ -345,7 +385,18 @@ export default function Dashboard() {
                           strokeLinecap="round"
                         />
                         {points.map((p, i) => (
-                          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#1890ff" />
+                          <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r="4"
+                            fill="#fff"
+                            stroke="#1890ff"
+                            strokeWidth="2"
+                            style={{ cursor: 'pointer' }}
+                            onMouseEnter={(e) => handleMouseEnter(e, p.item)}
+                            onMouseLeave={handleMouseLeave}
+                          />
                         ))}
                       </>
                     )
@@ -372,44 +423,46 @@ export default function Dashboard() {
                           strokeLinecap="round"
                         />
                         {points.map((p, i) => (
-                          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#fa8c16" />
+                          <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r="4"
+                            fill="#fff"
+                            stroke="#fa8c16"
+                            strokeWidth="2"
+                            style={{ cursor: 'pointer' }}
+                            onMouseEnter={(e) => handleMouseEnter(e, p.item)}
+                            onMouseLeave={handleMouseLeave}
+                          />
                         ))}
                       </>
                     )
                   })()}
 
-                  {/* X轴标签 - 日期 + 时间 */}
+                  {/* X轴标签 - 每隔1个显示，避免拥挤 */}
                   {(() => {
+                    const showIndices = trend.map((_, i) => i).filter((i) => i % 2 === 0)
                     const points = trend.map((item, i) => {
                       const pct = trend.length <= 1 ? 0 : i / (trend.length - 1)
                       const x = 45 + pct * (chartWidth - 120)
-                      return { x, item }
+                      return { x, item, show: showIndices.includes(i) }
                     })
                     return (
                       <>
-                        {points.map((p, i) => (
-                          <text
-                            key={i}
-                            x={p.x}
-                            y="190"
-                            fontSize="9"
-                            fill="#666"
-                            textAnchor="middle"
-                          >
-                            {dayjs(p.item.timestamp).format('MM/DD')}
-                          </text>
-                        ))}
-                        {points.map((p, i) => (
-                          <text
-                            key={`time-${i}`}
-                            x={p.x}
-                            y="202"
-                            fontSize="8"
-                            fill="#999"
-                            textAnchor="middle"
-                          >
-                            {dayjs(p.item.timestamp).format('HH:mm')}
-                          </text>
+                        {points.filter((p) => p.show).map((p, i) => (
+                          <g key={i}>
+                            <text
+                              x={p.x}
+                              y="192"
+                              fontSize="9"
+                              fill="#666"
+                              textAnchor="middle"
+                              transform={`rotate(-30 ${p.x} 192)`}
+                            >
+                              {dayjs(p.item.timestamp).format('MM/DD HH:mm')}
+                            </text>
+                          </g>
                         ))}
                       </>
                     )
