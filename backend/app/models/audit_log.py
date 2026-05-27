@@ -15,5 +15,4 @@ class AuditLog(Base):
     new_value = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    reservation = relationship("Reservation", back_populates="audit_logs")
     operator = relationship("User", foreign_keys=[operator_id])

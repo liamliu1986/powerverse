@@ -26,4 +26,3 @@ class Reservation(Base):
     user = relationship("User", foreign_keys=[user_id], back_populates="reservations")
     gpu = relationship("GPU", back_populates="reservations")
     approver = relationship("User", foreign_keys=[approved_by])
-    audit_logs = relationship("AuditLog", back_populates="reservation")
