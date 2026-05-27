@@ -83,9 +83,9 @@ export default function ReservationCalendarPage() {
       <h2>预约日历</h2>
       <Spin spinning={loading}>
         <Calendar
-          value={currentMonth}
-          onChange={setCurrentMonth}
-          cellRender={dateCellRender}
+          value={currentMonth as any}
+          onChange={setCurrentMonth as any}
+          cellRender={dateCellRender as any}
         />
       </Spin>
 
