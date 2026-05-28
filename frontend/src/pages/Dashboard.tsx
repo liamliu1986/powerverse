@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Timeline, DatePicker, Progress, Spin, Space, Tag, Empty, Badge } from 'antd'
+import { Card, Row, Col, Statistic, DatePicker, Progress, Spin, Space, Tag, Empty, Badge, Select } from 'antd'
 import { CloudServerOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, DashboardOutlined } from '@ant-design/icons'
 import { dashboardApi, DashboardOverview, UtilizationStats, ScheduleItem, UsageTrendItem } from '../services/dashboardApi'
 import { gpuApi, GPUMetric } from '../services/gpuApi'
@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [utilization, setUtilization] = useState<UtilizationStats | null>(null)
   const [schedule, setSchedule] = useState<ScheduleItem[]>([])
   const [scheduleDate, setScheduleDate] = useState(dayjs().format('YYYY-MM-DD'))
+  const [scheduleGpuFilter, setScheduleGpuFilter] = useState<number | null>(null)
   const [trend, setTrend] = useState<UsageTrendItem[]>([])
   const [gpuHistoryMap, setGpuHistoryMap] = useState<Record<number, GPUMetric[]>>({})
   const [chartWidth, setChartWidth] = useState(window.innerWidth)
@@ -333,37 +334,163 @@ export default function Dashboard() {
 
       {/* 当日调度 */}
       <Row gutter={16} style={{ marginTop: 24 }}>
-        <Col span={10}>
-          <Card title="当日调度">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <DatePicker
-                value={dayjs(scheduleDate)}
-                onChange={(date) => date && setScheduleDate(date.format('YYYY-MM-DD'))}
-                style={{ width: '100%' }}
-              />
-              <div style={{ maxHeight: 320, overflow: 'auto' }}>
-                {schedule.length === 0 ? (
-                  <Empty description="当日无预约" style={{ marginTop: 40 }} />
-                ) : (
-                  <Timeline
-                    items={schedule.map((item) => ({
-                      color: item.username ? 'blue' : 'gray',
-                      children: (
-                        <div>
-                          <strong>{item.gpu_name}</strong> @ {item.server_hostname}
-                          <br />
-                          <span style={{ fontSize: 12, color: '#999' }}>
-                            {dayjs.utc(item.start_time).tz('Asia/Shanghai').format('HH:mm')} - {dayjs.utc(item.end_time).tz('Asia/Shanghai').format('HH:mm')}
-                          </span>
-                          <br />
-                          <span style={{ fontSize: 12 }}>{item.username || '未分配'}</span>
-                        </div>
-                      ),
-                    }))}
-                  />
-                )}
+        <Col span={24}>
+          <Card
+            title={
+              <Space>
+                <span>当日调度</span>
+                <DatePicker
+                  value={dayjs(scheduleDate)}
+                  onChange={(date) => date && setScheduleDate(date.format('YYYY-MM-DD'))}
+                  format="YYYY-MM-DD"
+                  style={{ width: 130 }}
+                />
+                <Select
+                  placeholder="筛选GPU"
+                  allowClear
+                  style={{ width: 150 }}
+                  value={scheduleGpuFilter}
+                  onChange={(v) => setScheduleGpuFilter(v)}
+                >
+                  {Array.from(new Set(schedule.map(s => s.gpu_id))).map(gpuId => {
+                    const gpu = schedule.find(s => s.gpu_id === gpuId)
+                    return (
+                      <Select.Option key={gpuId} value={gpuId}>
+                        {gpu?.gpu_name || `GPU #${gpuId}`}
+                      </Select.Option>
+                    )
+                  })}
+                </Select>
+              </Space>
+            }
+          >
+            {schedule.length === 0 ? (
+              <Empty description="当日无预约" />
+            ) : (
+              <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 450 }}>
+                {(() => {
+                  const filteredSchedule = scheduleGpuFilter
+                    ? schedule.filter(s => s.gpu_id === scheduleGpuFilter)
+                    : schedule
+                  const gpuGroups = filteredSchedule.reduce((acc, item) => {
+                    const key = `${item.gpu_id}-${item.gpu_name}`
+                    if (!acc[key]) acc[key] = []
+                    acc[key].push(item)
+                    return acc
+                  }, {} as Record<string, ScheduleItem[]>)
+
+                  const gpuCount = Object.keys(gpuGroups).length
+                  const rowHeight = 38
+                  const headerHeight = 50
+                  const svgHeight = headerHeight + gpuCount * rowHeight + 10
+
+                  // 计算最长GPU名称需要的宽度（每个字符约7px + 10px内边距）
+                  const maxGpuNameLen = Math.max(...Object.values(gpuGroups).map(items => (items[0]?.gpu_name || '').length))
+                  const leftMargin = Math.max(70, maxGpuNameLen * 7 + 30)
+                  const chartWidthPx = chartWidth - leftMargin
+
+                  return (
+                    <svg width="100%" height={svgHeight} style={{ display: 'block', minWidth: 800 }}>
+                      {/* X轴: 0-24小时 */}
+                      <line x1={leftMargin} y1={headerHeight - 10} x2="100%" y2={headerHeight - 10} stroke="#ccc" strokeWidth="1" />
+
+                      {/* 小时刻度和网格 */}
+                      {Array.from({ length: 25 }, (_, i) => {
+                        const pct = i / 24
+                        const x = leftMargin + pct * chartWidthPx
+                        const isHour = i % 3 === 0
+                        return (
+                          <g key={i}>
+                            <line
+                              x1={x}
+                              y1={isHour ? headerHeight - 15 : headerHeight - 12}
+                              x2={x}
+                              y2={headerHeight - 10}
+                              stroke="#999"
+                              strokeWidth={isHour ? 1 : 0.5}
+                            />
+                            {isHour && (
+                              <text
+                                x={x}
+                                y={headerHeight - 20}
+                                fontSize="11"
+                                fill="#666"
+                                textAnchor="middle"
+                              >
+                                {i.toString().padStart(2, '0')}:00
+                              </text>
+                            )}
+                          </g>
+                        )
+                      })}
+
+                      {/* 按GPU分组显示预约 */}
+                      {Object.entries(gpuGroups).map(([key, items], gpuIdx) => {
+                        const gpuName = items[0]?.gpu_name || key
+                        const yBase = headerHeight + gpuIdx * rowHeight
+                        const colors = ['#1890ff', '#52c41a', '#fa8c16', '#f5222d', '#722ed1', '#13c2c2']
+                        const color = colors[gpuIdx % colors.length]
+
+                        return (
+                          <g key={key}>
+                            {/* GPU标签 */}
+                            <text
+                              x={leftMargin - 8}
+                              y={yBase + rowHeight / 2 + 4}
+                              fontSize="11"
+                              fill="#333"
+                              textAnchor="end"
+                            >
+                              {gpuName}
+                            </text>
+                            {/* 分隔线 */}
+                            <line x1={leftMargin} y1={yBase} x2="100%" y2={yBase} stroke="#f0f0f0" strokeWidth="1" />
+                            {/* 预约条 */}
+                            {items.map((item, idx) => {
+                              const start = dayjs.utc(item.start_time).tz('Asia/Shanghai')
+                              const end = dayjs.utc(item.end_time).tz('Asia/Shanghai')
+                              const startHour = start.hour() + start.minute() / 60
+                              const endHour = end.hour() + end.minute() / 60
+
+                              const barX = leftMargin + (startHour / 24) * chartWidthPx
+                              const barWidth = Math.max(6, ((endHour - startHour) / 24) * chartWidthPx)
+                              const barY = yBase + 6
+                              const barHeight = rowHeight - 12
+
+                              return (
+                                <g key={`bar-${item.reservation_id}-${idx}`} style={{ cursor: 'pointer' }}>
+                                  <rect
+                                    x={barX}
+                                    y={barY}
+                                    width={barWidth}
+                                    height={barHeight}
+                                    fill={color}
+                                    rx="4"
+                                    opacity={0.9}
+                                  />
+                                  <title>{gpuName}{'\n'}{item.username || '未分配'}{'\n'}{start.format('HH:mm')} - {end.format('HH:mm')}{item.purpose ? '\n' + item.purpose : ''}</title>
+                                  {barWidth > 40 && (
+                                    <text
+                                      x={barX + barWidth / 2}
+                                      y={yBase + rowHeight / 2 + 4}
+                                      fontSize="10"
+                                      fill="#fff"
+                                      textAnchor="middle"
+                                    >
+                                      {item.username?.substring(0, 5) || '未分配'}
+                                    </text>
+                                  )}
+                                </g>
+                              )
+                            })}
+                          </g>
+                        )
+                      })}
+                    </svg>
+                  )
+                })()}
               </div>
-            </Space>
+            )}
           </Card>
         </Col>
       </Row>
