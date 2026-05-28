@@ -237,8 +237,6 @@ async def delete_template(
         raise HTTPException(status_code=404, detail="Template not found")
     if current_user.role == UserRole.USER and template.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
-    if template.status == ReservationStatus.REJECTED:
-        raise HTTPException(status_code=400, detail="Cannot delete rejected templates")
 
     # Soft delete: set is_active to False, keep reservations intact
     template.is_active = False
