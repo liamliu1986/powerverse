@@ -5,6 +5,7 @@ from .gpu_metric import GPUMetric
 from .reservation import Reservation, ReservationStatus
 from .message import Message, MessageType
 from .audit_log import AuditLog
+from .reservation_template import ReservationTemplate, ReservationTemplateInstance, RecurrenceType
 
 __all__ = [
     "User", "UserRole",
@@ -14,4 +15,5 @@ __all__ = [
     "Reservation", "ReservationStatus",
     "Message", "MessageType",
     "AuditLog",
+    "ReservationTemplate", "ReservationTemplateInstance", "RecurrenceType",
 ]

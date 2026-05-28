@@ -16,11 +16,13 @@ class Reservation(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     gpu_id = Column(Integer, ForeignKey("gpus.id"), nullable=False, index=True)
+    template_id = Column(Integer, ForeignKey("reservation_templates.id"), nullable=True)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
     purpose = Column(Text, nullable=True)
     status = Column(SQLEnum(ReservationStatus), default=ReservationStatus.PENDING, nullable=False)
     approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    conflict_note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", foreign_keys=[user_id], back_populates="reservations")

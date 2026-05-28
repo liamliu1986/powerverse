@@ -170,8 +170,8 @@ export default function ReservationTemplateList() {
     {
       title: 'GPU',
       key: 'gpu',
-      render: (_: unknown, r: ReservationTemplate & { gpu_name?: string; server_hostname?: string }) =>
-        r.gpu_name ? `${r.server_hostname || 'N/A'} / ${r.gpu_name}` : `GPU #${r.gpu_id}`,
+      render: (_: unknown, r: ReservationTemplate) =>
+        `${r.server_hostname || 'N/A'}/${r.gpu_name || 'N/A'}-${r.gpu_index ?? 0}`,
     },
     {
       title: '重复类型',
@@ -182,14 +182,20 @@ export default function ReservationTemplateList() {
     {
       title: '时段',
       key: 'time_slot',
-      render: (_: unknown, r: ReservationTemplate) =>
-        `${r.start_time} - ${r.end_time}`,
+      render: (_: unknown, r: ReservationTemplate & { start_date?: string; end_date?: string }) =>
+        `${r.start_date || ''} ${r.start_time} - ${r.end_date || ''} ${r.end_time}`,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (v: string) => <Tag color={statusColor[v]}>{statusText[v]}</Tag>,
+    },
+    {
+      title: '实例',
+      key: 'instances',
+      render: (_: unknown, r: ReservationTemplate) =>
+        r.instance_count ? `${r.instance_count} 个` : '-',
     },
     {
       title: '操作',
@@ -209,11 +215,9 @@ export default function ReservationTemplateList() {
               <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
             </>
           )}
-          {record.status !== 'rejected' && (
-            <Popconfirm title="确认删除?" onConfirm={() => handleDelete(record.id)}>
-              <Button icon={<DeleteOutlined />} size="small" danger />
-            </Popconfirm>
-          )}
+          <Popconfirm title="确认删除?" onConfirm={() => handleDelete(record.id)}>
+            <Button icon={<DeleteOutlined />} size="small" danger />
+          </Popconfirm>
         </Space>
       ),
     },
@@ -222,9 +226,9 @@ export default function ReservationTemplateList() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>预约模板</h1>
+        <h1>预约申请</h1>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          创建模板
+          预约申请
         </Button>
       </div>
 
@@ -248,9 +252,9 @@ export default function ReservationTemplateList() {
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="gpu_id" label="GPU" rules={[{ required: true, message: '请选择GPU' }]}>
             <Select placeholder="请选择GPU">
-              {gpus.map((gpu) => (
+              {gpus.map((gpu: any) => (
                 <Select.Option key={gpu.id} value={gpu.id}>
-                  GPU #{gpu.id} {gpu.model_name && `(${gpu.model_name})`}
+                  {gpu.server?.hostname || 'N/A'}/{gpu.model_name || 'N/A'}-{gpu.gpu_index}
                 </Select.Option>
               ))}
             </Select>

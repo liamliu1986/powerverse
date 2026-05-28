@@ -14,6 +14,7 @@ BUFFER_HOURS = 1
 
 from ..database import get_db
 from ..models.reservation import Reservation, ReservationStatus
+from ..models.reservation_template import ReservationTemplateInstance
 from ..models.gpu import GPU
 from ..models.gpu_metric import GPUMetric
 from ..models.user import User, UserRole
@@ -52,17 +53,47 @@ async def list_reservations(
     result = await db.execute(query.order_by(Reservation.created_at.desc()))
     reservations = result.scalars().all()
 
+    # Build time descriptions for template instances
+    time_descriptions: Dict[int, str] = {}
+    for r in reservations:
+        if r.template_id and r.template_id not in time_descriptions:
+            # Query all instances for this template
+            inst_result = await db.execute(
+                select(ReservationTemplateInstance).where(
+                    ReservationTemplateInstance.template_id == r.template_id
+                )
+            )
+            instances = inst_result.scalars().all()
+            dates = sorted(set(i.instance_date for i in instances))
+
+            if not dates:
+                time_descriptions[r.template_id] = ""
+            elif len(dates) <= 3:
+                lines = []
+                for d in dates:
+                    lines.append(d.strftime('%m-%d'))
+                time_descriptions[r.template_id] = '\n'.join(lines)
+            else:
+                first = dates[0].strftime('%m-%d')
+                last = dates[-1].strftime('%m-%d')
+                time_descriptions[r.template_id] = f"{first} ~ {last}"
+        elif r.template_id:
+            time_descriptions[r.template_id] = time_descriptions.get(r.template_id, "")
+
     return [
         {
             "id": r.id,
             "user_id": r.user_id,
             "gpu_id": r.gpu_id,
+            "template_id": r.template_id,
             "start_time": r.start_time,
             "end_time": r.end_time,
             "purpose": r.purpose,
             "status": r.status.value if hasattr(r.status, 'value') else r.status,
             "approved_by": r.approved_by,
             "created_at": r.created_at,
+            "time_description": time_descriptions.get(r.template_id, ""),
+            "conflict_note": r.conflict_note,
             "gpu": {
                 "id": r.gpu.id,
                 "server_id": r.gpu.server_id,
@@ -90,7 +121,7 @@ async def get_reservations_calendar(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get reservations for calendar view (admin only)"""
+    """Get reservations for calendar view"""
     start = datetime.strptime(start_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0)
     end = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
 
@@ -195,6 +226,36 @@ async def check_slot_metrics(
         })
 
     return results
+
+MAX_CONCURRENT_TASKS = 3
+
+async def check_concurrent_reservations(
+    db: AsyncSession,
+    gpu_id: int,
+    start_time: datetime,
+    end_time: datetime,
+    exclude_template_id: Optional[int] = None
+) -> dict:
+    """
+    Check concurrent reservation count for a GPU in a time slot.
+    Returns dict with count and blocked status.
+    """
+    query = select(Reservation).where(
+        Reservation.gpu_id == gpu_id,
+        Reservation.status == ReservationStatus.APPROVED,
+        Reservation.start_time < end_time,
+        Reservation.end_time > start_time
+    )
+    if exclude_template_id:
+        query = query.where(Reservation.template_id != exclude_template_id)
+
+    result = await db.execute(query)
+    count = len(result.scalars().all())
+
+    return {
+        'count': count,
+        'blocked': count >= MAX_CONCURRENT_TASKS
+    }
 
 @router.post("", response_model=ReservationResponse, status_code=status.HTTP_201_CREATED)
 async def create_reservation(

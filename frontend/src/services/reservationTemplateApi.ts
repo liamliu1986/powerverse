@@ -33,6 +33,9 @@ export interface ReservationTemplate {
   created_at: string
   gpu_name?: string
   server_hostname?: string
+  gpu_index?: number
+  instance_count?: number
+  dates_summary?: string
 }
 
 export interface ReservationInstancePreview {
