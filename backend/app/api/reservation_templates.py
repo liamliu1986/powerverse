@@ -16,7 +16,7 @@ from ..schemas.reservation_template import (
     ReservationInstancePreview
 )
 from ..core.dependencies import get_current_user, get_current_operator
-from ..api.reservations import check_slot_metrics
+from ..api.reservations import check_slot_metrics, check_concurrent_reservations
 from zoneinfo import ZoneInfo
 
 router = APIRouter(prefix="/api/v1/reservation-templates", tags=["Reservation Templates"])
@@ -96,6 +96,20 @@ async def list_templates(
 
     response_list = []
     for t in templates:
+        # Query instances for this template
+        instances_result = await db.execute(
+            select(ReservationTemplateInstance).where(
+                ReservationTemplateInstance.template_id == t.id
+            )
+        )
+        instances = instances_result.scalars().all()
+        instance_count = len(instances)
+        if instances:
+            dates = sorted(set(i.instance_date for i in instances))
+            dates_summary = f"{dates[0].strftime('%Y-%m-%d')} ~ {dates[-1].strftime('%Y-%m-%d')}"
+        else:
+            dates_summary = ""
+
         template_dict = {
             "id": t.id,
             "user_id": t.user_id,
@@ -114,6 +128,9 @@ async def list_templates(
             "created_at": t.created_at,
             "gpu_name": t.gpu.model_name if t.gpu else None,
             "server_hostname": t.gpu.server.hostname if t.gpu and t.gpu.server else None,
+            "gpu_index": t.gpu.gpu_index if t.gpu else None,
+            "instance_count": instance_count,
+            "dates_summary": dates_summary,
         }
         response_list.append(template_dict)
     return response_list
@@ -260,6 +277,8 @@ async def approve_template(
     dates = generate_instance_dates(template)
     created_instances = []
     errors = []
+    blocked_dates = []
+    print(f"[DEBUG] Template {template_id}: dates to process = {[str(d) for d in dates]}, start_time={template.start_time}, end_time={template.end_time}")
 
     for d in dates:
         # Parse start time to UTC
@@ -273,9 +292,22 @@ async def approve_template(
         # Only check metrics (GPU load), not time overlap
         slot_results = await check_slot_metrics(db, template.gpu_id, start_dt, end_dt)
         blocked_slots = [r for r in slot_results if r['blocked']]
+        print(f"[DEBUG] Template {template_id}: date {d} slot_results = {slot_results}")
         if blocked_slots:
             errors.append(f"{d.strftime('%Y-%m-%d')} {template.start_time} 历史负载过高")
+            blocked_dates.append(d.strftime('%Y-%m-%d'))
+            print(f"[DEBUG] Template {template_id}: date {d} blocked by metrics")
             continue
+
+        # Check concurrent reservation count
+        concurrent = await check_concurrent_reservations(db, template.gpu_id, start_dt, end_dt)
+        if concurrent['blocked']:
+            err_msg = f"{d.strftime('%Y-%m-%d')} {template.start_time} 并发任务数已达3个"
+            errors.append(err_msg)
+            blocked_dates.append(d.strftime('%Y-%m-%d'))
+            print(f"[DEBUG] Template {template_id}: date {d} blocked by concurrent count = {concurrent['count']}")
+            continue
+        print(f"[DEBUG] Template {template_id}: date {d} passed checks, creating reservation...")
 
         # Create reservation
         reservation = Reservation(
@@ -304,6 +336,15 @@ async def approve_template(
     if errors and not created_instances:
         await db.rollback()
         raise HTTPException(status_code=409, detail="所有时段均冲突:\n" + "\n".join(errors))
+
+    # Update reservations with conflict notes if some dates were blocked
+    if blocked_dates:
+        conflict_note = f"以下日期冲突: {', '.join(blocked_dates)}"
+        for res_id in created_instances:
+            result = await db.execute(select(Reservation).where(Reservation.id == res_id))
+            res = result.scalar_one_or_none()
+            if res:
+                res.conflict_note = conflict_note
 
     template.status = ReservationStatus.APPROVED
     template.approved_by = current_user.id

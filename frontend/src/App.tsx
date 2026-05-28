@@ -13,6 +13,7 @@ import ReservationCalendar from './pages/ReservationCalendar'
 import Servers from './pages/Servers'
 import Notifications from './pages/Notifications'
 import UserManagement from './pages/UserManagement'
+import ReservationTemplateList from './pages/ReservationTemplateList'
 
 const { Header, Content } = Layout
 
@@ -40,7 +41,8 @@ function AppLayout() {
 
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '仪表盘' },
-    { key: '/reservations', icon: <ScheduleOutlined />, label: '预约管理' },
+    { key: '/reservations', icon: <ScheduleOutlined />, label: '预约看板' },
+    { key: '/templates', icon: <ScheduleOutlined />, label: '预约申请' },
     { key: '/calendar', icon: <ScheduleOutlined />, label: '预约日历' },
     { key: '/gpus', icon: <ControlOutlined />, label: 'GPU监控' },
     ...(user?.role === 'admin' || user?.role === 'operator'
@@ -95,6 +97,7 @@ function AppLayout() {
           <Route path="/calendar" element={<ReservationCalendar />} />
           <Route path="/servers" element={<Servers />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/templates" element={<ReservationTemplateList />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

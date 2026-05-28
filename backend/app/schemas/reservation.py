@@ -22,6 +22,8 @@ class ReservationResponse(ReservationBase):
     user_id: int
     status: ReservationStatus
     approved_by: Optional[int] = None
+    template_id: Optional[int] = None
+    conflict_note: Optional[str] = None
     created_at: datetime
 
     class Config:

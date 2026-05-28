@@ -36,6 +36,9 @@ class ReservationTemplateResponse(ReservationTemplateBase):
     created_at: datetime
     gpu_name: Optional[str] = None
     server_hostname: Optional[str] = None
+    gpu_index: Optional[int] = None
+    instance_count: Optional[int] = 0
+    dates_summary: Optional[str] = None
 
     class Config:
         from_attributes = True

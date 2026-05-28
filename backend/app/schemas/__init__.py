@@ -5,3 +5,7 @@ from .reservation import ReservationCreate, ReservationUpdate, ReservationRespon
 from .message import MessageCreate, MessageResponse, UnreadCountResponse
 from .dashboard import DashboardOverview, UtilizationStats, ScheduleResponse, UsageTrendResponse
 from .audit_log import AuditLogResponse
+from .reservation_template import (
+    ReservationTemplateCreate, ReservationTemplateUpdate,
+    ReservationTemplateResponse, ReservationTemplatePreviewResponse
+)

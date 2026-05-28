@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Modal, Form, Input, DatePicker, Select, Tag, Space, message, Alert } from 'antd'
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
+import { Table, Button, Modal, Input, Select, Tag, Space, message } from 'antd'
+import { CheckCircleOutlined, CloseCircleOutlined, ExpandAltOutlined } from '@ant-design/icons'
 import { useAuthStore } from '../stores/authStore'
 import api from '../services/api'
-import { gpuApi, AvailableSlot } from '../services/gpuApi'
 import dayjs from 'dayjs'
 
 interface GPU {
@@ -27,6 +26,9 @@ interface Reservation {
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
   user_id: number
   created_at: string
+  template_id?: number
+  time_description?: string
+  conflict_note?: string
   user?: {
     username: string
     email: string
@@ -71,18 +73,13 @@ function RejectModal({ open, reservationId, onConfirm, onCancel }: RejectModalPr
 
 export default function ReservationList() {
   const [reservations, setReservations] = useState<Reservation[]>([])
-  const [gpus, setGpus] = useState<GPU[]>([])
   const [loading, setLoading] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [rejectModal, setRejectModal] = useState<{ open: boolean; reservationId: number | null }>({
     open: false,
     reservationId: null,
   })
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
-  const [form] = Form.useForm()
   const user = useAuthStore((state) => state.user)
-  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
-  const [selectedGpuId, setSelectedGpuId] = useState<number | null>(null)
 
   const fetchReservations = async () => {
     setLoading(true)
@@ -96,48 +93,9 @@ export default function ReservationList() {
     }
   }
 
-  const fetchGpus = async () => {
-    try {
-      const res = await api.get<GPU[]>('/v1/gpus')
-      setGpus(res.data)
-    } catch {
-      message.error('获取GPU列表失败')
-    }
-  }
-
   useEffect(() => {
     fetchReservations()
-    fetchGpus()
   }, [])
-
-  const handleGpuSelect = async (gpuId: number) => {
-    setSelectedGpuId(gpuId)
-    try {
-      const date = dayjs().format('YYYY-MM-DD')
-      const data = await gpuApi.getAvailableSlots(gpuId, date)
-      setAvailableSlots(data.slots)
-    } catch {
-      setAvailableSlots([])
-    }
-  }
-
-  const handleCreate = async (values: { gpu_id: number; start_time: dayjs.Dayjs; end_time: dayjs.Dayjs; purpose?: string }) => {
-    try {
-      await api.post('/v1/reservations', {
-        gpu_id: values.gpu_id,
-        start_time: values.start_time.toISOString(),
-        end_time: values.end_time.toISOString(),
-        purpose: values.purpose,
-      })
-      message.success('预约申请已提交')
-      setIsModalOpen(false)
-      form.resetFields()
-      fetchReservations()
-    } catch (err: any) {
-      const detail = err.response?.data?.detail
-      message.error(detail || '创建预约失败')
-    }
-  }
 
   const handleApprove = async (id: number) => {
     try {
@@ -189,12 +147,21 @@ export default function ReservationList() {
     cancelled: 'default',
   }
 
+  // Build table data with expandable rows
+  const tableData = reservations.map((r) => ({
+    ...r,
+    key: r.id,
+    isGroupHeader: false,
+  }))
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  console.log('tableData length:', tableData.length)
+
   const filteredReservations = statusFilter
     ? reservations.filter((r) => r.status === statusFilter)
     : reservations
 
   const columns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     {
       title: 'GPU',
       key: 'gpu',
@@ -202,21 +169,26 @@ export default function ReservationList() {
         r.gpu ? `${r.gpu.server?.hostname || 'N/A'} / GPU ${r.gpu.gpu_index}` : `GPU #${r.gpu_id}`,
     },
     {
-      title: '申请人',
-      key: 'user',
-      render: (_: unknown, r: Reservation) => r.user?.username || `User #${r.user_id}`,
+      title: '来源',
+      key: 'template',
+      render: (_: unknown, r: Reservation) =>
+        r.template_id ? (
+          <Tag icon={<ExpandAltOutlined />} color="blue">模板</Tag>
+        ) : (
+          <Tag>单次</Tag>
+        ),
     },
     {
-      title: '开始时间',
-      dataIndex: 'start_time',
-      key: 'start_time',
-      render: (v: string) => dayjs.utc(v).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm'),
-    },
-    {
-      title: '结束时间',
-      dataIndex: 'end_time',
-      key: 'end_time',
-      render: (v: string) => dayjs.utc(v).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm'),
+      title: '预约时间',
+      key: 'time_range',
+      render: (_: unknown, r: Reservation) => {
+        const start = dayjs.utc(r.start_time).tz('Asia/Shanghai')
+        const end = dayjs.utc(r.end_time).tz('Asia/Shanghai')
+        if (r.time_description) {
+          return <div style={{ whiteSpace: 'pre-line' }}>{r.time_description}<br />{start.format('HH:mm')} - {end.format('HH:mm')}</div>
+        }
+        return `${start.format('YYYY-MM-DD HH:mm')} - ${end.format('HH:mm')}`
+      },
     },
     { title: '用途', dataIndex: 'purpose', key: 'purpose', ellipsis: true },
     {
@@ -224,6 +196,14 @@ export default function ReservationList() {
       dataIndex: 'status',
       key: 'status',
       render: (v: string) => <Tag color={statusColor[v]}>{v}</Tag>,
+    },
+    {
+      title: '备注',
+      key: 'conflict_note',
+      render: (_: unknown, r: Reservation) =>
+        r.conflict_note ? (
+          <span style={{ color: 'orange', fontSize: 12 }}>{r.conflict_note}</span>
+        ) : null,
     },
     {
       title: '操作',
@@ -283,7 +263,7 @@ export default function ReservationList() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1>预约管理</h1>
+        <h1>预约看板</h1>
         <Space>
           <Select
             placeholder="筛选状态"
@@ -297,9 +277,6 @@ export default function ReservationList() {
             <Select.Option value="rejected">已拒绝</Select.Option>
             <Select.Option value="cancelled">已取消</Select.Option>
           </Select>
-          <Button type="primary" onClick={() => setIsModalOpen(true)}>
-            新建预约
-          </Button>
         </Space>
       </div>
 
@@ -310,73 +287,6 @@ export default function ReservationList() {
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
-
-      <Modal
-        title="新建预约"
-        open={isModalOpen}
-        onCancel={() => {
-          setIsModalOpen(false)
-          form.resetFields()
-        }}
-        footer={null}
-      >
-        <Form form={form} onFinish={handleCreate} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item
-            name="gpu_id"
-            label="选择GPU"
-            rules={[{ required: true, message: '请选择GPU' }]}
-          >
-            <Select placeholder="请选择GPU" onChange={handleGpuSelect}>
-              {gpus.map((gpu) => (
-                <Select.Option key={gpu.id} value={gpu.id}>
-                  {gpu.server?.hostname || `Server #${gpu.server_id}`} / GPU {gpu.gpu_index}
-                  {gpu.model_name && ` (${gpu.model_name})`}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          {selectedGpuId && availableSlots.length > 0 && (
-            <Alert
-              message="今日可用时段 (利用率<50% 且 显存<50%)"
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-              description={
-                <div style={{ maxHeight: 100, overflow: 'auto' }}>
-                  {availableSlots.map((slot, i) => (
-                    <div key={i} style={{ fontSize: 12 }}>
-                      {dayjs(slot.start_time).format('HH:mm')}-{dayjs(slot.end_time).format('HH:mm')}
-                      {' '}(利用率{(slot.avg_utilization_pct).toFixed(0)}%, 显存{(slot.avg_memory_used_mb / 1024).toFixed(1)}GB)
-                    </div>
-                  ))}
-                </div>
-              }
-            />
-          )}
-
-          <Form.Item
-            name="start_time"
-            label="开始时间"
-            rules={[{ required: true, message: '请选择开始时间' }]}
-          >
-            <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="end_time"
-            label="结束时间"
-            rules={[{ required: true, message: '请选择结束时间' }]}
-          >
-            <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="purpose" label="用途">
-            <Input.TextArea placeholder="请输入预约用途" rows={3} />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block>
-            提交申请
-          </Button>
-        </Form>
-      </Modal>
 
       <RejectModal
         open={rejectModal.open}
